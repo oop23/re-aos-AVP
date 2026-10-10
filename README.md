@@ -33,6 +33,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - MediaStore delete/rename requests are refused too.
 - All delete / copy-to-device / NFO export entries are gone from the phone and TV interfaces; the delete code paths refuse before touching the library.
 - Scraped metadata, your edits, resume points and downloaded subtitles stay **on the device**. NFO files on the shares are still **read** (Kodi-compatible), never written.
+- Opening a compressed `.torrent` no longer rewrites it in place.
 - The subtitles wizard associates a subtitle by copying it into the private cache instead of renaming it on the drive.
 
 ### ✏️ Edit metadata
@@ -55,7 +56,8 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
 
 ### ▶️ Player
-- Stop button, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`).
+- Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
+- Stop button, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
 - Brightness is never written to the system nor remembered; the brightness button is gone and the swipe is an opt-in setting on the left edge only.
 

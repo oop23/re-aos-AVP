@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  # a newer push waits for the running build instead of cancelling it (only the latest waits)
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest

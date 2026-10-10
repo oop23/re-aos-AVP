@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:42:53 +0000
+Subject: [PATCH] Screen format button: aspect ratio icon and a label
+
+The 'original' format was shown as a bare '0'. It now uses the aspect
+ratio symbol, and every switch briefly names the chosen format
+(Original, Fullscreen, Stretched, 16:9...).
+---
+ res/drawable/video_format_0_disabled.xml      | 24 ++++++++---------
+ res/drawable/video_format_0_normal.xml        | 23 ++++++++--------
+ res/drawable/video_format_0_pressed.xml       | 26 ++++++++-----------
+ .../video/player/PlayerController.java        | 22 ++++++++++++++++
+ 4 files changed, 55 insertions(+), 40 deletions(-)
+
+diff --git a/res/drawable/video_format_0_disabled.xml b/res/drawable/video_format_0_disabled.xml
+index 51acc73..a32078d 100644
+--- a/res/drawable/video_format_0_disabled.xml
++++ b/res/drawable/video_format_0_disabled.xml
+@@ -1,13 +1,11 @@
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:aapt="http://schemas.android.com/aapt"
+-    android:width="116dp"
+-    android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-    
+-    <path
+-        android:pathData="m76.82,54.58q0,14.51 -5.14,21.35 -5.09,6.8 -15.86,6.87 -10.92,0.07 -15.98,-6.77 -5.01,-6.84 -5.01,-21.1 0,-14.37 5.09,-21.24 5.09,-6.91 15.9,-6.98 10.92,-0.07 15.94,6.88 5.05,6.92 5.05,20.99zM66.1,71.07q1.43,-2.94 1.92,-6.89 0.53,-3.98 0.53,-9.56 0,-5.5 -0.53,-9.55 -0.49,-4.05 -1.96,-6.86 -1.43,-2.78 -3.91,-4.17 -2.45,-1.4 -6.32,-1.37 -3.83,0.02 -6.36,1.45 -2.49,1.43 -3.95,4.3 -1.39,2.69 -1.92,7 -0.49,4.31 -0.49,9.45 0,5.65 0.45,9.44 0.45,3.8 1.92,6.79 1.35,2.81 3.79,4.28 2.49,1.47 6.56,1.44 3.83,-0.02 6.36,-1.45 2.53,-1.43 3.91,-4.29z"
+-        android:strokeWidth="0.0679617"
+-        android:fillColor="#FFC0C0C0"
+-        android:strokeColor="#FFC0C0C0"/>
+-</vector>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: screen format "original" shown as the aspect ratio symbol instead of a "0" -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.6" android:scaleY="0.6">
++        <path android:pathData="M19,12h-2v3h-3v2h5v-5zM7,9h3L10,7L5,7v5h2L7,9zM21,3L3,3c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h18c1.1,0 2,-0.9 2,-2L23,5c0,-1.1 -0.9,-2 -2,-2zM21,19.01L3,19.01L3,4.99h18v14.02z" android:fillColor="#FFFFFF" android:fillAlpha="0.35" />
++    </group>
++</vector>
+diff --git a/res/drawable/video_format_0_normal.xml b/res/drawable/video_format_0_normal.xml
+index bc1d032..34a4e8f 100644
+--- a/res/drawable/video_format_0_normal.xml
++++ b/res/drawable/video_format_0_normal.xml
+@@ -1,12 +1,11 @@
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-    android:width="116dp"
+-    android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-    
+-    <path
+-        android:pathData="m76.82,54.58q0,14.51 -5.14,21.35 -5.09,6.8 -15.86,6.87 -10.92,0.07 -15.98,-6.77 -5.01,-6.84 -5.01,-21.1 0,-14.37 5.09,-21.24 5.09,-6.91 15.9,-6.98 10.92,-0.07 15.94,6.88 5.05,6.92 5.05,20.99zM66.1,71.07q1.43,-2.94 1.92,-6.89 0.53,-3.98 0.53,-9.56 0,-5.5 -0.53,-9.55 -0.49,-4.05 -1.96,-6.86 -1.43,-2.78 -3.91,-4.17 -2.45,-1.4 -6.32,-1.37 -3.83,0.02 -6.36,1.45 -2.49,1.43 -3.95,4.3 -1.39,2.69 -1.92,7 -0.49,4.31 -0.49,9.45 0,5.65 0.45,9.44 0.45,3.8 1.92,6.79 1.35,2.81 3.79,4.28 2.49,1.47 6.56,1.44 3.83,-0.02 6.36,-1.45 2.53,-1.43 3.91,-4.29z"
+-        android:strokeWidth="0.0679617"
+-        android:fillColor="#ffffff"
+-        android:strokeColor="#ffffff"/>
+-</vector>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: screen format "original" shown as the aspect ratio symbol instead of a "0" -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.6" android:scaleY="0.6">
++        <path android:pathData="M19,12h-2v3h-3v2h5v-5zM7,9h3L10,7L5,7v5h2L7,9zM21,3L3,3c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h18c1.1,0 2,-0.9 2,-2L23,5c0,-1.1 -0.9,-2 -2,-2zM21,19.01L3,19.01L3,4.99h18v14.02z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
++    </group>
++</vector>
+diff --git a/res/drawable/video_format_0_pressed.xml b/res/drawable/video_format_0_pressed.xml
+index dac4c35..7e693d1 100644
+--- a/res/drawable/video_format_0_pressed.xml
++++ b/res/drawable/video_format_0_pressed.xml
+@@ -1,15 +1,11 @@
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:aapt="http://schemas.android.com/aapt"
+-    android:width="116dp"
+-    android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-    <path
+-        android:pathData="M-0,58a58,58 96.14,1 0,116 0a58,58 96.14,1 0,-116 0z"
+-        android:fillColor="#00A7FF"/>
+-    <path
+-        android:pathData="m76.82,54.58q0,14.51 -5.14,21.35 -5.09,6.8 -15.86,6.87 -10.92,0.07 -15.98,-6.77 -5.01,-6.84 -5.01,-21.1 0,-14.37 5.09,-21.24 5.09,-6.91 15.9,-6.98 10.92,-0.07 15.94,6.88 5.05,6.92 5.05,20.99zM66.1,71.07q1.43,-2.94 1.92,-6.89 0.53,-3.98 0.53,-9.56 0,-5.5 -0.53,-9.55 -0.49,-4.05 -1.96,-6.86 -1.43,-2.78 -3.91,-4.17 -2.45,-1.4 -6.32,-1.37 -3.83,0.02 -6.36,1.45 -2.49,1.43 -3.95,4.3 -1.39,2.69 -1.92,7 -0.49,4.31 -0.49,9.45 0,5.65 0.45,9.44 0.45,3.8 1.92,6.79 1.35,2.81 3.79,4.28 2.49,1.47 6.56,1.44 3.83,-0.02 6.36,-1.45 2.53,-1.43 3.91,-4.29z"
+-        android:strokeWidth="0.0679617"
+-        android:fillColor="#ffffff"
+-        android:strokeColor="#ffffff"/>
+-</vector>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: screen format "original" shown as the aspect ratio symbol instead of a "0" -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.6" android:scaleY="0.6">
++        <path android:pathData="M19,12h-2v3h-3v2h5v-5zM7,9h3L10,7L5,7v5h2L7,9zM21,3L3,3c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h18c1.1,0 2,-0.9 2,-2L23,5c0,-1.1 -0.9,-2 -2,-2zM21,19.01L3,19.01L3,4.99h18v14.02z" android:fillColor="#FFD27A" android:fillAlpha="1" />
++    </group>
++</vector>
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+index a91469b..60b32c8 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+@@ -1225,6 +1225,7 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+                     if (log.isDebugEnabled()) log.debug("Handle: MSG_SWITCH_VIDEO_FORMAT");
+                     mSurfaceController.switchVideoFormat();
+                     updateFormat();
++                    showFormatOsd();
+                     break;
+                 case MSG_HIDE_SYSTEM_BAR:
+                     if (log.isDebugEnabled()) log.debug("Handle: MSG_HIDE_SYSTEM_BAR");
+@@ -1434,6 +1435,27 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+         }
+     }
+ 
++    /** ReNova: say which format was chosen, the icons alone were cryptic */
++    private void showFormatOsd() {
++        if (mOsdRightTextView == null) return;
++        int label;
++        switch (mSurfaceController.getCurrentVideoFormat()) {
++            case SurfaceController.VideoFormat.STRETCH_XY: label = R.string.format_stretched; break;
++            case SurfaceController.VideoFormat.FULL_SCREEN: label = R.string.format_fullscreen; break;
++            case SurfaceController.VideoFormat.FORCE43: label = R.string.format_43; break;
++            case SurfaceController.VideoFormat.FORCE169: label = R.string.format_169; break;
++            case SurfaceController.VideoFormat.FORCE185: label = R.string.format_185; break;
++            case SurfaceController.VideoFormat.FORCE239: label = R.string.format_239; break;
++            case SurfaceController.VideoFormat.AUTO: label = R.string.format_optimized; break;
++            default: label = R.string.format_original; break;
++        }
++        mOsdRightTextView.setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
++        mOsdRightTextView.setText(label);
++        mOsdRightTextView.setVisibility(View.VISIBLE);
++        hideOsdHandler.removeCallbacks(hideOsdRunnable);
++        hideOsdHandler.postDelayed(hideOsdRunnable, 1200);
++    }
++
+     public void setStretchXYIcon() {
+         mBarXYIconResource = mSurfaceController.willStretchY ? R.drawable.video_format_arrow_vertical : R.drawable.video_format_arrow_horizontal;
+         if (mFormatButton != null && mSurfaceController.getCurrentVideoFormat() == SurfaceController.VideoFormat.STRETCH_XY)
