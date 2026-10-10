@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:10:50 +0000
+Subject: [PATCH] Player: stop button in the control bar
+
+Next to play/pause in landscape, tablet and TV bars, at the left of the
+bar in portrait. The top menu keeps Stop in its overflow.
+---
+ res/drawable/video_stop.xml                        | 14 ++++++++++++++
+ res/layout-land/player_controller_inside.xml       | 13 +++++++++++++
+ .../player_controller_inside.xml                   | 13 +++++++++++++
+ res/layout-sw600dp/player_controller_inside.xml    | 13 +++++++++++++
+ res/layout/player_controller_inside.xml            | 14 ++++++++++++++
+ .../mediacenter/video/player/PlayerActivity.java   |  2 +-
+ .../mediacenter/video/player/PlayerController.java | 10 ++++++++++
+ 7 files changed, 78 insertions(+), 1 deletion(-)
+ create mode 100644 res/drawable/video_stop.xml
+
+diff --git a/res/drawable/video_stop.xml b/res/drawable/video_stop.xml
+new file mode 100644
+index 0000000..d0a189a
+--- /dev/null
++++ b/res/drawable/video_stop.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: stop button of the player bar (same visual weight as rewind / forward) -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="40dp"
++    android:height="40dp"
++    android:viewportWidth="40"
++    android:viewportHeight="40">
++    <path
++        android:fillColor="#33000000"
++        android:pathData="M14,14.8h12a3,3 0 0 1 3,3v12a3,3 0 0 1 -3,3h-12a3,3 0 0 1 -3,-3v-12a3,3 0 0 1 3,-3z" />
++    <path
++        android:fillColor="#F2FFFFFF"
++        android:pathData="M14,13h12a3,3 0 0 1 3,3v12a3,3 0 0 1 -3,3h-12a3,3 0 0 1 -3,-3v-12a3,3 0 0 1 3,-3z" />
++</vector>
+diff --git a/res/layout-land/player_controller_inside.xml b/res/layout-land/player_controller_inside.xml
+index 1d4e544..15bdce4 100644
+--- a/res/layout-land/player_controller_inside.xml
++++ b/res/layout-land/player_controller_inside.xml
+@@ -72,6 +72,19 @@
+             ads:srcCompat="@drawable/video_play_selector"
+         android:contentDescription="@string/play_selection" />
+ 
++        <ImageButton
++            android:id="@+id/stop"
++            style="@style/PlayerControlButton"
++            android:layout_marginStart="@dimen/player_button_margin_half"
++            android:layout_marginEnd="@dimen/player_button_margin_half"
++            android:paddingStart="@dimen/player_button_padding_half"
++            android:paddingEnd="@dimen/player_button_padding_half"
++            android:scaleType="fitCenter"
++            android:adjustViewBounds="true"
++            ads:srcCompat="@drawable/video_stop"
++            android:contentDescription="@string/player_stop" />
++
++
+         <ImageButton
+             android:id="@+id/backward"
+             style="@style/PlayerControlButton"
+diff --git a/res/layout-sw500dp-notouch/player_controller_inside.xml b/res/layout-sw500dp-notouch/player_controller_inside.xml
+index f14849a..ce0e619 100644
+--- a/res/layout-sw500dp-notouch/player_controller_inside.xml
++++ b/res/layout-sw500dp-notouch/player_controller_inside.xml
+@@ -69,6 +69,19 @@
+             ads:srcCompat="@drawable/video_play_selector"
+         android:contentDescription="@string/play_selection" />
+ 
++        <ImageButton
++            android:id="@+id/stop"
++            style="@style/PlayerControlButton"
++            android:layout_marginStart="@dimen/player_button_margin_half"
++            android:layout_marginEnd="@dimen/player_button_margin_half"
++            android:paddingStart="@dimen/player_button_padding_half"
++            android:paddingEnd="@dimen/player_button_padding_half"
++            android:scaleType="fitCenter"
++            android:adjustViewBounds="true"
++            ads:srcCompat="@drawable/video_stop"
++            android:contentDescription="@string/player_stop" />
++
++
+         <ImageButton
+             android:id="@+id/backward"
+             style="@style/PlayerControlButton"
+diff --git a/res/layout-sw600dp/player_controller_inside.xml b/res/layout-sw600dp/player_controller_inside.xml
+index 05f3b2c..32fd392 100644
+--- a/res/layout-sw600dp/player_controller_inside.xml
++++ b/res/layout-sw600dp/player_controller_inside.xml
+@@ -72,6 +72,19 @@
+             ads:srcCompat="@drawable/video_play_selector"
+         android:contentDescription="@string/play_selection" />
+ 
++        <ImageButton
++            android:id="@+id/stop"
++            style="@style/PlayerControlButton"
++            android:layout_marginStart="@dimen/player_button_margin_half"
++            android:layout_marginEnd="@dimen/player_button_margin_half"
++            android:paddingStart="@dimen/player_button_padding_half"
++            android:paddingEnd="@dimen/player_button_padding_half"
++            android:scaleType="fitCenter"
++            android:adjustViewBounds="true"
++            ads:srcCompat="@drawable/video_stop"
++            android:contentDescription="@string/player_stop" />
++
++
+         <ImageButton
+             android:id="@+id/backward"
+             style="@style/PlayerControlButton"
+diff --git a/res/layout/player_controller_inside.xml b/res/layout/player_controller_inside.xml
+index c75ad0b..37a60f2 100644
+--- a/res/layout/player_controller_inside.xml
++++ b/res/layout/player_controller_inside.xml
+@@ -132,6 +132,20 @@
+                 ads:srcCompat="@drawable/video_play_selector"
+         android:contentDescription="@string/play_selection" />
+ 
++            <ImageButton
++                android:id="@+id/stop"
++                style="@style/PlayerControlButton"
++                android:layout_marginStart="12dip"
++                android:layout_alignParentStart="true"
++                android:layout_centerVertical="true"
++                android:layout_width="52dp"
++                android:layout_height="52dp"
++                android:paddingBottom="6dip"
++                android:scaleType="fitCenter"
++                android:adjustViewBounds="true"
++                ads:srcCompat="@drawable/video_stop"
++                android:contentDescription="@string/player_stop" />
++
+             <ImageButton
+                 android:id="@+id/backward"
+                 style="@style/PlayerControlButton"
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index 3f6b0d3..e32b126 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -2587,7 +2587,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+             //------------------------------------------------------------------
+             // ReNova: an explicit Stop, like every player (back used to be the only way out)
+             menu.add(MENU_FILE_ACTIONS_GROUP, MENU_STOP_ID, Menu.NONE, R.string.player_stop)
+-                    .setIcon(R.drawable.ic_menu_stop).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
++                    .setIcon(R.drawable.ic_menu_stop).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER); // the bar has a stop button
+             mInfoMenuItem = menu.add(MENU_FILE_ACTIONS_GROUP, MENU_INFO_ID, Menu.NONE, R.string.menu_info);
+             if (mInfoMenuItem != null) {
+                 mInfoMenuItem.setIcon(R.drawable.ic_menu_info).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+index f67da34..260aee1 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+@@ -495,6 +495,16 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+             mFormatButton.setOnClickListener(mFormatListener);
+         }
+ 
++        // ReNova: stop in the bar, same path as back (the resume point is saved on the way out)
++        ImageButton stopButton = (ImageButton) v.findViewById(R.id.stop);
++        if (stopButton != null) {
++            if (mContext instanceof android.app.Activity) {
++                stopButton.setOnClickListener(view -> ((android.app.Activity) mContext).finish());
++            } else {
++                stopButton.setVisibility(View.GONE);
++            }
++        }
++
+         ImageButton fullscreenWithCutoutButton = (ImageButton) v.findViewById(R.id.fullscreen_cutouts);
+         if (fullscreenWithCutoutButton != null) {
+             //If we have a Cutout, show the Fullscreen with Cutouts Button

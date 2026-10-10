@@ -47,6 +47,9 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **Anime titles resolved with [AniList](https://anilist.co)**: romaji / fansub names TMDb does not know ("Sousou no Frieren") are looked up on AniList's official API and searched again on TMDb under their english/romaji/native titles. ([Shinden](https://shinden.pl) has no public API, so it is not used.)
 - **No more Japanese-only texts**: when TMDb has no translation in your language, titles and plots fall back to English instead of the original 葬送のフリーレン with an empty plot.
 
+### 🏷️ Where the info comes from
+- Next to the TMDb / IMDb logos, details show the **AniList** logo when AniList identified the anime, an **NFO** badge when the info was read from an `.nfo` file, and **Your edits** when you changed it.
+
 ### 🖼️ Sharper artwork
 - Posters downloaded at w780 (were w500, collections w342) and episode stills at full size scaled to 780px (were 300px thumbnails): no more soft covers on TVs.
 
@@ -54,12 +57,14 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **Libraries no longer vanish** when a NAS is still asleep or a share answers empty: a rescan that would wipe most of a source is held back until the next scan confirms it (Kodi never auto-cleans either).
 - **Progress is kept** when you leave a resumed video while it is still loading (it used to be reset to 0).
 - The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
+- **One NAS, one entry**: a server found by IP (shown as an unnamed server) and by name (NetBIOS/mDNS, e.g. `TPLINK`) is merged, and the same share can no longer be indexed twice under its name and its IP (which scraped every video twice).
 
 ### ▶️ Player
 - Kodi-like **buffering progress** ("Buffering 45%") when playback waits for data.
 - Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
-- Stop button, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
+- **Stop button** in the control bar, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
+- Title and menu on a soft top fade with strong text shadows: readable on bright scenes.
 - Optional **cinema mode** (like YouTube's ambient mode): the bars around the picture glow softly with the colors of the scene instead of being black.
 - Brightness is never written to the system nor remembered; the brightness button is gone and the swipe is an opt-in setting on the left edge only.
 
@@ -69,7 +74,12 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 ### 🌙 Modern dark look
 - Material 3 dark themes on phone screens with the ReNova palette (indigo surfaces, violet primary, gold highlights); the TV interface follows the same palette.
 - Animated splash screen (the renewal arrow spins into place, the nova spark flares) and a blur-in entrance into the app.
+- **Modern dialogs** everywhere: rounded cards lit from the top, and on Android 12+ the screen behind is blurred, not just dimmed.
+- Details actions stand out: the main one (Resume, or Play) is a gold pill, the others violet; info cards use the palette instead of a flat grey.
 - Cinematic backdrops: the artwork stays sharp, only the text side and the bottom fade into the background (instead of dimming the whole picture).
+
+### 🔐 Fewer permissions
+- No Bluetooth, no Wi-Fi switching, no sticky broadcasts; the microphone (voice search with TV remotes) is only asked for on TV, never on phones.
 
 ### 🎨 New identity
 - ReNova Player name, dark logo (a renewal arrow around a play button, with a nova spark), TV banner and status bar icon. Sources in [`branding/`](branding).
@@ -78,7 +88,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 ### Roadmap
 - Deeper anime support: AniList/MyAnimeList ids, absolute episode numbering (One Piece 1050), anime-first matching for anime folders.
 - Better poster/backdrop selection and image quality, nicer blur effects.
-- Further mobile UI modernization (browse and details screens), data source logos (TMDb / AniList / NFO) on details.
+- Further mobile UI modernization (browse screens).
 
 ## Versions
 

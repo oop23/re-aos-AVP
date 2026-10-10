@@ -1,0 +1,97 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:09:02 +0000
+Subject: [PATCH] SMB discovery: one entry per server, merged by IP
+
+TCP discovery only knows a server's IP and showed it as an unnamed
+server next to the same NAS found by NetBIOS or mDNS. Entries are now
+merged by IP, the NetBIOS name wins over the mDNS one.
+---
+ .../filecorelibrary/samba/SambaDiscovery.java | 54 +++++++++++--------
+ 1 file changed, 31 insertions(+), 23 deletions(-)
+
+diff --git a/src/com/archos/filecorelibrary/samba/SambaDiscovery.java b/src/com/archos/filecorelibrary/samba/SambaDiscovery.java
+index 8d16198..b52f646 100644
+--- a/src/com/archos/filecorelibrary/samba/SambaDiscovery.java
++++ b/src/com/archos/filecorelibrary/samba/SambaDiscovery.java
+@@ -174,32 +174,33 @@ public class SambaDiscovery implements InternalDiscoveryListener {
+             if (log.isTraceEnabled()) log.trace("onShareFound: shareNameResolver hastable {}", dumpShareNameResolver());
+         }
+ 
++        // ReNova: one server = one entry. TCP discovery only knows the IP ("unknown" server), NetBIOS
++        // and mDNS give a name for the same IP: merge them by IP, keep the name, prefer the NetBIOS
++        // (upper case) name over the mDNS one. Upstream only merged entries with equal names, so a
++        // NAS showed up twice (by IP and by name) and could be indexed twice.
++        boolean named = shareName != null && !shareName.isEmpty();
++        String ip = hostOf(shareAddress);
+         boolean alreadyFound = false;
+-
+-        // Check if this address is already in the list
+         Iterator<Workgroup> wkIter = mWorkgroups.values().iterator();
+-        Share curShare;
+-        while(wkIter.hasNext()) {
++        while (wkIter.hasNext()) {
+             Workgroup wk = wkIter.next();
+             Iterator<Share> shIter = wk.getShares().iterator();
+             while (shIter.hasNext()) {
+-                curShare = shIter.next(); // this one is upperCase
+-                if (curShare.getName().equalsIgnoreCase(shareName)) {
++                Share curShare = shIter.next();
++                String curName = curShare.getName() == null ? "" : curShare.getName();
++                boolean sameServer = (ip != null && ip.equalsIgnoreCase(hostOf(curShare.getAddress())))
++                        || (named && curName.equalsIgnoreCase(shareName));
++                if (!sameServer) continue;
++                if (!named) {
++                    alreadyFound = true; // nothing new about this server
++                } else if (curName.isEmpty()) {
++                    if (log.isDebugEnabled()) log.debug("onShareFound: {} is the name of {}", shareName, curShare.getAddress());
++                    shIter.remove();
++                } else if (isUpperCase(shareName) && !isUpperCase(curName)) {
++                    if (log.isDebugEnabled()) log.debug("onShareFound: NetBIOS name {} replaces {}", shareName, curName);
++                    shIter.remove();
++                } else {
+                     alreadyFound = true;
+-                    if (shareName != null) {
+-                        if (shareName.toUpperCase(Locale.ROOT).equals(shareName)) {
+-                            // if shareName is upperCase let's use this one instead of probably the mdns one
+-                            if (log.isDebugEnabled()) log.debug("addIfNeeded: replacing probable mdns discovery removing {}", shareAddress);
+-                            shIter.remove();
+-                        } else {
+-                            if (curShare.getAddress().equals(shareAddress) && !shareName.isEmpty()) {
+-                                // When shareName is not null and not empty, we must remove a previous instance
+-                                // with the same address (but no name because from TCP discovery) to replace it
+-                                if (log.isDebugEnabled()) log.debug("addIfNeeded: replacing tcp discovery or updating removing {}", shareAddress);
+-                                shIter.remove();
+-                            }
+-                        }
+-                    }
+                 }
+             }
+             // Remove workgroup if it is now empty
+@@ -207,9 +208,7 @@ public class SambaDiscovery implements InternalDiscoveryListener {
+                 wkIter.remove();
+             }
+         }
+-
+-        // Do not add a share with no name if it is already found (because the already existing instance has a name in that case)
+-        if (alreadyFound && (shareName==null || shareName.isEmpty())) {
++        if (alreadyFound) {
+             return;
+         }
+ 
+@@ -228,6 +227,15 @@ public class SambaDiscovery implements InternalDiscoveryListener {
+         informListener(false);
+     }
+ 
++    private static String hostOf(String address) {
++        if (address == null) return null;
++        return Uri.parse(address).getHost();
++    }
++
++    private static boolean isUpperCase(String name) {
++        return name.toUpperCase(Locale.ROOT).equals(name);
++    }
++
+     @Override
+     public void onInternalDiscoveryEnd(InternalDiscovery discovery, boolean aborted) {
+         if (log.isDebugEnabled()) log.debug("onInternalDiscoveryEnd {} aborted={}", discovery.getClass().getSimpleName(), aborted);

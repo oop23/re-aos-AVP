@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:11:10 +0000
+Subject: [PATCH] Browse grid: bottom fade on artwork, card shadow, gold resume
+ bar
+
+---
+ res/drawable/browser_resume_slider.xml | 12 +++---------
+ res/drawable/poster_bottom_scrim.xml   |  4 ++++
+ res/layout/browser_item_grid.xml       |  8 ++++++++
+ res/values/styles.xml                  |  4 ++--
+ 4 files changed, 17 insertions(+), 11 deletions(-)
+ create mode 100644 res/drawable/poster_bottom_scrim.xml
+
+diff --git a/res/drawable/browser_resume_slider.xml b/res/drawable/browser_resume_slider.xml
+index 620ea60..67627aa 100644
+--- a/res/drawable/browser_resume_slider.xml
++++ b/res/drawable/browser_resume_slider.xml
+@@ -20,10 +20,7 @@
+     <item android:id="@android:id/background">
+         <shape android:shape="rectangle" >
+ 
+-            <stroke
+-                android:color="#30000000" />
+-
+-            <solid android:color="#30000000" />
++            <solid android:color="#33FFFFFF" />
+         </shape>
+     </item>
+     <item android:id="@android:id/progress">
+@@ -31,11 +28,8 @@
+             android:scaleGravity="left"
+             android:scaleWidth="100%" >
+             <shape android:shape="rectangle" >
+-                <stroke
+-                    android:color="#30000000" />
+-
+-
+-                <solid android:color="@color/ui_accent_secondary" />
++                <!-- ReNova: gold like the resume action, visible on any poster -->
++                <gradient android:angle="0" android:startColor="#FFC85F" android:endColor="#FFE3A2" />
+             </shape>
+         </scale>
+     </item>
+diff --git a/res/drawable/poster_bottom_scrim.xml b/res/drawable/poster_bottom_scrim.xml
+new file mode 100644
+index 0000000..305654a
+--- /dev/null
++++ b/res/drawable/poster_bottom_scrim.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <gradient android:angle="90" android:startColor="#B3000000" android:endColor="#00000000" />
++</shape>
+diff --git a/res/layout/browser_item_grid.xml b/res/layout/browser_item_grid.xml
+index 62febbd..82baa5f 100644
+--- a/res/layout/browser_item_grid.xml
++++ b/res/layout/browser_item_grid.xml
+@@ -14,6 +14,7 @@
+     android:layout_gravity="start"
+     card_view:cardBackgroundColor="@color/grid_item_background"
+     card_view:cardCornerRadius="12dp"
++    card_view:cardElevation="4dp"
+     android:layout_width="wrap_content"
+     android:layout_height="wrap_content"
+     >
+@@ -46,6 +47,13 @@
+                 android:scaleType="centerCrop"
+         android:contentDescription="@null" />
+ 
++            <!-- ReNova: soft fade at the bottom of the artwork so badges stay readable -->
++            <View
++                android:layout_width="match_parent"
++                android:layout_height="56dp"
++                android:layout_gravity="bottom"
++                android:background="@drawable/poster_bottom_scrim" />
++
+             <TextView
+                 android:id="@+id/episode_number_badge"
+                 android:layout_width="wrap_content"
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index 09cf28e..5e6e775 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -205,8 +205,8 @@
+     <style name="BrowserResumeSlider">
+         <item name="android:progressDrawable">@drawable/browser_resume_slider</item>
+         <item name="android:orientation">horizontal</item>
+-        <item name="android:minHeight">2dip</item>
+-        <item name="android:maxHeight">2dip</item>
++        <item name="android:minHeight">3dip</item>
++        <item name="android:maxHeight">3dip</item>
+         <item name="android:indeterminateOnly">false</item>
+         <item name="android:thumb">@null</item>
+     </style>

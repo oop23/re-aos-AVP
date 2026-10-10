@@ -1,0 +1,114 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:10:01 +0000
+Subject: [PATCH] Readable player title, standout play/resume buttons
+
+The player title and menu sit on a soft top fade with a stronger text
+shadow. On details the main action floats with a shadow, bigger bold
+text and its icon next to the text.
+---
+ res/drawable/player_top_scrim.xml             | 10 ++++++++
+ res/layout/video_title.xml                    |  7 +++---
+ .../video/info/VideoInfoActivityFragment.java | 24 ++++++++++++++++++-
+ .../video/player/PlayerActivity.java          |  3 ++-
+ 4 files changed, 39 insertions(+), 5 deletions(-)
+ create mode 100644 res/drawable/player_top_scrim.xml
+
+diff --git a/res/drawable/player_top_scrim.xml b/res/drawable/player_top_scrim.xml
+new file mode 100644
+index 0000000..f9c3e27
+--- /dev/null
++++ b/res/drawable/player_top_scrim.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- behind the title and the menu at the top of the player: dark at the edge, fading into the video -->
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <gradient
++        android:angle="270"
++        android:startColor="#D9000000"
++        android:centerColor="#80000000"
++        android:endColor="#00000000"
++        android:type="linear" />
++</shape>
+diff --git a/res/layout/video_title.xml b/res/layout/video_title.xml
+index 8aba234..c3de49a 100644
+--- a/res/layout/video_title.xml
++++ b/res/layout/video_title.xml
+@@ -16,8 +16,9 @@
+     android:textSize="@dimen/player_time_text_size"
+     android:textColor="#ffffff"
+     android:textStyle="bold"
+-    android:shadowColor="#dd000000"
++    android:shadowColor="#F0000000"
+     android:shadowDx="0"
+-    android:shadowDy="0"
+-    android:shadowRadius="2"
++    android:shadowDy="1"
++    android:shadowRadius="6"
++    android:letterSpacing="0.01"
+     android:minWidth="1000dp" />
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 3122558..d042298 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -149,6 +149,8 @@ import static com.archos.mediacenter.video.browser.subtitlesmanager.ISO639codes.
+ import static com.archos.mediacenter.video.browser.subtitlesmanager.ISO639codes.replaceLanguageCodeInString;
+ import static com.archos.mediacenter.video.utils.VideoUtils.getFileUriStringFromContentUri;
+ 
++import com.google.android.material.button.MaterialButton;
++
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+@@ -760,6 +762,7 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+      * pill, the others violet tonal pills: they used to be plain text rows on a grey card.
+      */
+     private void styleActionButtons() {
++        float density = getResources().getDisplayMetrics().density;
+         Button primary = mResumeLocalButton.getVisibility() == View.VISIBLE ? mResumeLocalButton : mPlayButton;
+         for (Button button : new Button[] { mPlayButton, mResumeLocalButton, mRemoteResumeButton, mNextEpisodeButton, mListEpisodesButton }) {
+             if (button == null) continue;
+@@ -770,9 +773,28 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+             button.setPaddingRelative(start, top, end, bottom);
+             int textColor = isPrimary ? 0xFF2B1D00 : 0xFFF1EDFF;
+             button.setTextColor(textColor);
+-            TextViewCompat.setCompoundDrawableTintList(button, ColorStateList.valueOf(textColor));
++            ColorStateList tint = ColorStateList.valueOf(textColor);
++            if (button instanceof MaterialButton) {
++                // icon right next to the text instead of stuck to the left edge
++                MaterialButton materialButton = (MaterialButton) button;
++                Drawable icon = materialButton.getIcon();
++                if (icon == null) icon = button.getCompoundDrawablesRelative()[0];
++                if (icon != null) {
++                    button.setCompoundDrawablesRelative(null, null, null, null);
++                    materialButton.setIcon(icon);
++                    materialButton.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
++                    materialButton.setIconPadding(Math.round(8 * density));
++                    materialButton.setIconTint(tint);
++                }
++            } else {
++                TextViewCompat.setCompoundDrawableTintList(button, tint);
++            }
+             button.setAllCaps(false);
+             button.setTypeface(null, isPrimary ? Typeface.BOLD : Typeface.NORMAL);
++            button.setTextSize(TypedValue.COMPLEX_UNIT_SP, isPrimary ? 17 : 15);
++            // the main action floats above the card with a soft shadow
++            button.setStateListAnimator(null);
++            ViewCompat.setElevation(button, isPrimary ? 6 * density : 0);
+         }
+     }
+ 
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index 5144a2e..3f6b0d3 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -785,7 +785,8 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+         ActionBar actionBar = getSupportActionBar();
+         actionBar.setDisplayShowHomeEnabled(false);
+         actionBar.setDisplayShowTitleEnabled(false);
+-        actionBar.setBackgroundDrawable(null);
++        // ReNova: a soft dark fade behind the title and the menu keeps them readable on bright scenes
++        actionBar.setBackgroundDrawable(ContextCompat.getDrawable(this, R.drawable.player_top_scrim));
+ 
+         mPaused = false;
+         mPlayerControllerPlaceholder = findViewById(R.id.player_controller_placeholder);
