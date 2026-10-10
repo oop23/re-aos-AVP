@@ -1,0 +1,105 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:17:00 +0000
+Subject: [PATCH] Player menu: edit the info of the playing video
+
+---
+ .../video/info/MetadataEditDialog.java        | 30 +++++++++++++++++++
+ .../video/player/PlayerActivity.java          |  8 +++++
+ 2 files changed, 38 insertions(+)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java b/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java
+index 8ae7ddd..936a86b 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java
++++ b/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java
+@@ -14,6 +14,7 @@ package com.archos.mediacenter.video.info;
+ 
+ import android.app.Activity;
+ import android.content.Context;
++import android.database.Cursor;
+ import android.os.Handler;
+ import android.os.Looper;
+ import android.text.TextUtils;
+@@ -29,6 +30,7 @@ import com.archos.mediacenter.video.R;
+ import com.archos.mediacenter.video.browser.adapters.object.Episode;
+ import com.archos.mediacenter.video.browser.adapters.object.Movie;
+ import com.archos.mediacenter.video.browser.adapters.object.Video;
++import com.archos.mediaprovider.video.VideoStore;
+ import com.archos.mediascraper.BaseTags;
+ import com.archos.mediascraper.EpisodeTags;
+ import com.archos.mediascraper.MetadataOverrides;
+@@ -90,6 +92,34 @@ public final class MetadataEditDialog {
+         });
+     }
+ 
++    /** Edit the movie or the episode playing from this path (used by the player). */
++    public static void showForPath(Activity activity, String path) {
++        if (path == null) return;
++        final Context app = activity.getApplicationContext();
++        sExecutor.execute(() -> {
++            BaseTags tags = null;
++            String[] projection = { VideoStore.Video.VideoColumns.SCRAPER_MOVIE_ID, VideoStore.Video.VideoColumns.SCRAPER_EPISODE_ID };
++            try (Cursor c = app.getContentResolver().query(VideoStore.Video.Media.EXTERNAL_CONTENT_URI, projection,
++                    VideoStore.MediaColumns.DATA + "=?", new String[] { path }, null)) {
++                if (c != null && c.moveToFirst()) {
++                    long movieId = c.isNull(0) ? -1 : c.getLong(0);
++                    long episodeId = c.isNull(1) ? -1 : c.getLong(1);
++                    if (movieId > 0) tags = TagsFactory.buildMovieTags(app, movieId);
++                    else if (episodeId > 0) tags = TagsFactory.buildEpisodeTags(app, episodeId);
++                }
++            } catch (Exception e) {
++                log.warn("showForPath: cannot load tags for {}", path, e);
++            }
++            final BaseTags loaded = tags;
++            sMainHandler.post(() -> {
++                if (activity.isFinishing()) return;
++                if (loaded instanceof MovieTags) showDialog(activity, Kind.MOVIE, loaded, path);
++                else if (loaded instanceof EpisodeTags) showDialog(activity, Kind.EPISODE, loaded, path);
++                else Toast.makeText(activity, R.string.metadata_edit_unavailable, Toast.LENGTH_SHORT).show();
++            });
++        });
++    }
++
+     /** Edit a TV show from its scraper database id. */
+     public static void showForShow(Activity activity, long showId) {
+         final Context app = activity.getApplicationContext();
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index e32b126..2547ca3 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -111,6 +111,7 @@ import com.archos.mediacenter.utils.MediaUtils;
+ import com.archos.mediacenter.utils.introdb.IntroSegments;
+ import com.archos.mediacenter.utils.videodb.IndexHelper;
+ import com.archos.mediacenter.utils.videodb.VideoDbInfo;
++import com.archos.mediacenter.video.info.MetadataEditDialog;
+ import com.archos.mediacenter.video.CustomApplication;
+ import com.archos.mediacenter.video.R;
+ import com.archos.mediacenter.video.UiChoiceDialog;
+@@ -242,6 +243,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+     private static final int MENU_INFO_ID = 101;
+     private static final int MENU_STOP_ID = 100;
+     private static final int MENU_BOOKMARK_ID = 102;
++    private static final int MENU_EDIT_INFO_ID = 109;
+ 
+     private static final int MENU_GLOBAL_ACTIONS_GROUP = 20;
+ 
+@@ -2593,6 +2595,9 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+                 mInfoMenuItem.setIcon(R.drawable.ic_menu_info).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+             }
+ 
++            // ReNova: fix a wrong title or episode without leaving the video
++            menu.add(MENU_FILE_ACTIONS_GROUP, MENU_EDIT_INFO_ID, Menu.NONE, R.string.metadata_edit)
++                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+             mBookmarkMenuItem = menu.add(MENU_FILE_ACTIONS_GROUP, MENU_BOOKMARK_ID, Menu.NONE, R.string.menu_bookmark);
+             if (mBookmarkMenuItem != null) {
+                 mBookmarkMenuItem.setIcon(R.drawable.ic_menu_bookmark).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+@@ -2737,6 +2742,9 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+             case MENU_INFO_ID:
+                 showVideoInfos();
+                 return true;
++            case MENU_EDIT_INFO_ID:
++                if (mUri != null) MetadataEditDialog.showForPath(this, mUri.toString());
++                return true;
+             case MENU_BOOKMARK_ID:
+                 if (mVideoInfo != null) {
+                     mVideoInfo.bookmark = getBookmarkPosition();

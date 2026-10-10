@@ -92,12 +92,30 @@ jobs:
         cat > shot.sh <<'SH'
         #!/bin/bash
         # usage: shot.sh name
-        # small jpeg published as a job annotation (readable through the checks API)
+        # small jpeg, published later as job annotations (readable through the checks API)
+        mkdir -p shots
         adb exec-out screencap -p > "$1.png"
-        convert "$1.png" -resize 320x -quality 50 "$1.jpg"
-        echo "::notice title=SHOT $1::$(base64 -w 0 "$1.jpg")"
+        convert "$1.png" -resize 270x -quality 45 "shots/$1.jpg"
         SH
         chmod +x shot.sh
+        # annotations are cut at 4096 characters and limited to 10 per step: split every
+        # screenshot in 4000 character chunks, step N publishes chunks 10*(N-1) .. 10*N-1
+        cat > publish.sh <<'SH'
+        #!/bin/bash
+        part=$1; i=0
+        for f in shots/*.jpg; do
+          [ -f "$f" ] || continue
+          name=$(basename "$f" .jpg)
+          b64=$(base64 -w 0 "$f"); n=$(( (${#b64} + 3999) / 4000 ))
+          for k in $(seq 0 $((n - 1))); do
+            if [ $((i / 10 + 1)) -eq "$part" ]; then
+              echo "::notice title=SHOT $name $((k + 1))/$n::${b64:$((k * 4000)):4000}"
+            fi
+            i=$((i + 1))
+          done
+        done
+        SH
+        chmod +x publish.sh
     - name: make a test video
       run: |
         command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
@@ -136,3 +154,15 @@ jobs:
           # each script line runs in its own shell: keep every command on one line
           adb logcat -d -b crash > crash.txt || true
           if [ -s crash.txt ]; then echo "::warning title=CRASH::$(grep -A15 -i 'renova\|FATAL' crash.txt | head -c 3500 | tr '\n' '|' | tr -d '%')"; fi
+    - name: publish screenshots (1)
+      if: always()
+      run: ./publish.sh 1
+    - name: publish screenshots (2)
+      if: always()
+      run: ./publish.sh 2
+    - name: publish screenshots (3)
+      if: always()
+      run: ./publish.sh 3
+    - name: publish screenshots (4)
+      if: always()
+      run: ./publish.sh 4
