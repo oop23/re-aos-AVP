@@ -142,17 +142,27 @@ jobs:
           ./shot.sh 03-settings
           adb push test-video.mp4 /sdcard/Movies/test-video.mp4
           adb shell am start -a android.intent.action.VIEW -t video/mp4 -d file:///sdcard/Movies/test-video.mp4 -n io.github.oop23.renova/com.archos.mediacenter.video.player.PlayerActivity || true
-          sleep 12
+          sleep 20
           ./shot.sh 04-player
-          adb shell input tap 640 360
-          sleep 2
+          adb shell input tap 540 900
+          sleep 1
           ./shot.sh 05-player-controls
+          adb shell settings put system accelerometer_rotation 0
+          adb shell settings put system user_rotation 1
+          sleep 5
+          adb shell input tap 900 540
+          sleep 1
+          ./shot.sh 07-player-landscape
+          adb shell settings put system user_rotation 0
+          sleep 3
           adb shell input keyevent KEYCODE_BACK
           adb shell input keyevent KEYCODE_BACK
           sleep 3
           ./shot.sh 06-after-player
           # each script line runs in its own shell: keep every command on one line
           adb logcat -d -b crash > crash.txt || true
+          adb logcat -d '*:E' > errors.txt || true
+          if [ -s errors.txt ]; then echo "::warning title=ERRORS::$(grep -i 'renova\|avos\|player\|media\|codec' errors.txt | tail -30 | cut -c1-160 | tr '\n' '|' | tr -d '%' | head -c 3800)"; fi
           if [ -s crash.txt ]; then echo "::warning title=CRASH::$(grep -A15 -i 'renova\|FATAL' crash.txt | head -c 3500 | tr '\n' '|' | tr -d '%')"; fi
     - name: publish screenshots (1)
       if: always()
