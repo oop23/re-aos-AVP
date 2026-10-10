@@ -1,0 +1,265 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:59:26 +0000
+Subject: [PATCH] Let users edit scraped metadata, and keep their edits
+
+MetadataOverrides stores what the user edited (title, plot, rating,
+year, age rating, season/episode numbers) on the device. Edits update
+the library at once and are applied again on every MovieTags,
+EpisodeTags and ShowTags save, so automatic scrapes, rescrape all and
+NFO imports never undo them.
+---
+ src/com/archos/mediascraper/EpisodeTags.java  |   2 +
+ .../mediascraper/MetadataOverrides.java       | 202 ++++++++++++++++++
+ src/com/archos/mediascraper/MovieTags.java    |   2 +
+ src/com/archos/mediascraper/ShowTags.java     |   2 +
+ 4 files changed, 208 insertions(+)
+ create mode 100644 src/com/archos/mediascraper/MetadataOverrides.java
+
+diff --git a/src/com/archos/mediascraper/EpisodeTags.java b/src/com/archos/mediascraper/EpisodeTags.java
+index 858baff..d8280ee 100644
+--- a/src/com/archos/mediascraper/EpisodeTags.java
++++ b/src/com/archos/mediascraper/EpisodeTags.java
+@@ -124,6 +124,8 @@ public class EpisodeTags extends BaseTags {
+     public long save(Context context, long videoId) {
+         // save the video id in this tag
+         setVideoId(videoId);
++        // what the user edited wins over scraped data
++        MetadataOverrides.applyTo(context, this, videoId);
+ 
+         ContentResolver cr = context.getContentResolver();
+ 
+diff --git a/src/com/archos/mediascraper/MetadataOverrides.java b/src/com/archos/mediascraper/MetadataOverrides.java
+new file mode 100644
+index 0000000..0f7ee2c
+--- /dev/null
++++ b/src/com/archos/mediascraper/MetadataOverrides.java
+@@ -0,0 +1,202 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper;
++
++import android.content.ContentResolver;
++import android.content.ContentValues;
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.database.Cursor;
++import android.provider.BaseColumns;
++
++import com.archos.mediaprovider.video.ScraperStore;
++import com.archos.mediaprovider.video.VideoStore;
++import com.archos.mediascraper.preprocess.SortTitleUtils;
++
++import org.json.JSONException;
++import org.json.JSONObject;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import java.util.Calendar;
++import java.util.TimeZone;
++
++/**
++ * Metadata edited by the user.
++ *
++ * Edits are applied to the scraper database right away and also remembered here, so that every
++ * later scrape (automatic, "rescrape all", NFO import) applies them again on top of the online
++ * data: what the user typed always wins, the way Kodi locked fields do.
++ *
++ * Movies and episodes are keyed by video path (stable across library rebuilds), shows by their
++ * online id.
++ */
++public final class MetadataOverrides {
++
++    private static final Logger log = LoggerFactory.getLogger(MetadataOverrides.class);
++
++    private static final String PREFS = "metadata_overrides";
++
++    public static final String TITLE = "title";
++    public static final String PLOT = "plot";
++    public static final String RATING = "rating";
++    public static final String YEAR = "year";
++    public static final String CONTENT_RATING = "content_rating";
++    public static final String SEASON = "season";
++    public static final String EPISODE = "episode";
++
++    private MetadataOverrides() {}
++
++    // ------------------------------------------------------------------ keys
++
++    public static String movieKey(String videoPath) { return "movie:" + videoPath; }
++    public static String episodeKey(String videoPath) { return "episode:" + videoPath; }
++    public static String showKey(long onlineId) { return "show:" + onlineId; }
++
++    private static SharedPreferences prefs(Context context) {
++        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++    }
++
++    public static JSONObject get(Context context, String key) {
++        String json = prefs(context).getString(key, null);
++        if (json == null) return null;
++        try {
++            return new JSONObject(json);
++        } catch (JSONException e) {
++            log.warn("get: corrupted override {}", key, e);
++            return null;
++        }
++    }
++
++    public static boolean has(Context context, String key) {
++        return prefs(context).contains(key);
++    }
++
++    public static void clear(Context context, String key) {
++        prefs(context).edit().remove(key).apply();
++    }
++
++    private static void put(Context context, String key, JSONObject edits) {
++        prefs(context).edit().putString(key, edits.toString()).apply();
++    }
++
++    // ------------------------------------------------------------------ editing (UI entry points)
++
++    /** Saves movie edits and updates the library immediately. */
++    public static void editMovie(Context context, long movieId, String videoPath, JSONObject edits) {
++        if (videoPath != null) put(context, movieKey(videoPath), edits);
++        ContentValues cv = new ContentValues();
++        if (edits.has(TITLE)) {
++            String title = edits.optString(TITLE);
++            cv.put(ScraperStore.Movie.NAME, title);
++            cv.put(ScraperStore.Movie.SORT_NAME, SortTitleUtils.extractSortTitle(title, null));
++        }
++        if (edits.has(PLOT)) cv.put(ScraperStore.Movie.PLOT, edits.optString(PLOT));
++        if (edits.has(RATING)) cv.put(ScraperStore.Movie.RATING, (float) edits.optDouble(RATING));
++        if (edits.has(YEAR)) cv.put(ScraperStore.Movie.YEAR, edits.optInt(YEAR));
++        if (edits.has(CONTENT_RATING)) cv.put(ScraperStore.Movie.CONTENT_RATING, edits.optString(CONTENT_RATING));
++        update(context, ScraperStore.Movie.URI.ID, movieId, cv);
++    }
++
++    /** Saves episode edits and updates the library immediately. */
++    public static void editEpisode(Context context, long episodeId, String videoPath, JSONObject edits) {
++        if (videoPath != null) put(context, episodeKey(videoPath), edits);
++        ContentValues cv = new ContentValues();
++        if (edits.has(TITLE)) cv.put(ScraperStore.Episode.NAME, edits.optString(TITLE));
++        if (edits.has(PLOT)) cv.put(ScraperStore.Episode.PLOT, edits.optString(PLOT));
++        if (edits.has(RATING)) cv.put(ScraperStore.Episode.RATING, (float) edits.optDouble(RATING));
++        if (edits.has(SEASON)) cv.put(ScraperStore.Episode.SEASON, edits.optInt(SEASON));
++        if (edits.has(EPISODE)) cv.put(ScraperStore.Episode.NUMBER, edits.optInt(EPISODE));
++        update(context, ScraperStore.Episode.URI.ID, episodeId, cv);
++    }
++
++    /** Saves show edits and updates the library immediately. */
++    public static void editShow(Context context, long showId, long onlineId, JSONObject edits) {
++        if (onlineId > 0) put(context, showKey(onlineId), edits);
++        ContentValues cv = new ContentValues();
++        if (edits.has(TITLE)) {
++            String title = edits.optString(TITLE);
++            cv.put(ScraperStore.Show.NAME, title);
++            cv.put(ScraperStore.Show.SORT_NAME, SortTitleUtils.extractSortTitle(title, null));
++        }
++        if (edits.has(PLOT)) cv.put(ScraperStore.Show.PLOT, edits.optString(PLOT));
++        if (edits.has(RATING)) cv.put(ScraperStore.Show.RATING, (float) edits.optDouble(RATING));
++        if (edits.has(YEAR)) cv.put(ScraperStore.Show.PREMIERED, januaryFirst(edits.optInt(YEAR)));
++        update(context, ScraperStore.Show.URI.ID, showId, cv);
++    }
++
++    private static void update(Context context, android.net.Uri base, long id, ContentValues cv) {
++        if (cv.size() == 0 || id <= 0) return;
++        ContentResolver cr = context.getContentResolver();
++        int n = cr.update(android.net.Uri.withAppendedPath(base, String.valueOf(id)), cv, null, null);
++        if (log.isDebugEnabled()) log.debug("update: {} id={} -> {} rows", base, id, n);
++    }
++
++    static long januaryFirst(int year) {
++        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
++        c.clear();
++        c.set(year, Calendar.JANUARY, 1);
++        return c.getTimeInMillis();
++    }
++
++    // ------------------------------------------------------------------ re-applied on every save
++
++    static void applyTo(Context context, MovieTags tags, long videoId) {
++        JSONObject e = getForVideo(context, videoId, true);
++        if (e == null) return;
++        if (e.has(TITLE)) tags.setTitle(e.optString(TITLE));
++        if (e.has(PLOT)) tags.setPlot(e.optString(PLOT));
++        if (e.has(RATING)) tags.setRating((float) e.optDouble(RATING));
++        if (e.has(YEAR)) tags.setYear(e.optInt(YEAR));
++        if (e.has(CONTENT_RATING)) tags.setContentRating(e.optString(CONTENT_RATING));
++    }
++
++    static void applyTo(Context context, EpisodeTags tags, long videoId) {
++        JSONObject e = getForVideo(context, videoId, false);
++        if (e == null) return;
++        if (e.has(TITLE)) tags.setTitle(e.optString(TITLE));
++        if (e.has(PLOT)) tags.setPlot(e.optString(PLOT));
++        if (e.has(RATING)) tags.setRating((float) e.optDouble(RATING));
++        if (e.has(SEASON)) tags.setSeason(e.optInt(SEASON));
++        if (e.has(EPISODE)) tags.setEpisode(e.optInt(EPISODE));
++    }
++
++    static void applyTo(Context context, ShowTags tags) {
++        if (tags.getOnlineId() <= 0) return;
++        JSONObject e = get(context, showKey(tags.getOnlineId()));
++        if (e == null) return;
++        if (e.has(TITLE)) tags.setTitle(e.optString(TITLE));
++        if (e.has(PLOT)) tags.setPlot(e.optString(PLOT));
++        if (e.has(RATING)) tags.setRating((float) e.optDouble(RATING));
++        if (e.has(YEAR)) tags.setPremiered(januaryFirst(e.optInt(YEAR)));
++    }
++
++    private static JSONObject getForVideo(Context context, long videoId, boolean movie) {
++        if (context == null || videoId <= 0) return null;
++        if (prefs(context).getAll().isEmpty()) return null; // no edit at all: skip the query
++        String path = getVideoPath(context, videoId);
++        if (path == null) return null;
++        return get(context, movie ? movieKey(path) : episodeKey(path));
++    }
++
++    public static String getVideoPath(Context context, long videoId) {
++        try (Cursor c = context.getContentResolver().query(VideoStore.Video.Media.EXTERNAL_CONTENT_URI,
++                new String[] { VideoStore.MediaColumns.DATA }, BaseColumns._ID + "=?",
++                new String[] { String.valueOf(videoId) }, null)) {
++            if (c != null && c.moveToFirst()) return c.getString(0);
++        } catch (Exception e) {
++            log.warn("getVideoPath: failed for {}", videoId, e);
++        }
++        return null;
++    }
++}
+diff --git a/src/com/archos/mediascraper/MovieTags.java b/src/com/archos/mediascraper/MovieTags.java
+index 6796a3c..70afd3a 100644
+--- a/src/com/archos/mediascraper/MovieTags.java
++++ b/src/com/archos/mediascraper/MovieTags.java
+@@ -202,6 +202,8 @@ public class MovieTags extends VideoTags {
+ 
+     @Override
+     public long save(Context context, long videoId) {
++        // what the user edited wins over scraped data
++        MetadataOverrides.applyTo(context, this, videoId);
+         ContentResolver cr = context.getContentResolver();
+         //------------------------------------------------------
+         // Create a new entry for this movie in the database.
+diff --git a/src/com/archos/mediascraper/ShowTags.java b/src/com/archos/mediascraper/ShowTags.java
+index 1bb2c98..2c41d3d 100644
+--- a/src/com/archos/mediascraper/ShowTags.java
++++ b/src/com/archos/mediascraper/ShowTags.java
+@@ -171,6 +171,8 @@ public class ShowTags extends VideoTags {
+ 
+     @Override
+     public long save(Context context, long videoId) {
++        // what the user edited wins over scraped data
++        MetadataOverrides.applyTo(context, this);
+ 
+         // prepare cover / backdrop info
+         ScraperImage cover = getDefaultPoster();

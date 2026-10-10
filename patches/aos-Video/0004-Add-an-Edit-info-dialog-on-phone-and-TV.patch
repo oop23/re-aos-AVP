@@ -1,0 +1,615 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:59:26 +0000
+Subject: [PATCH] Add an Edit info dialog on phone and TV
+
+Movie and episode details (phone menu and TV actions) and TV show
+details get an Edit info entry opening a Material 3 dialog. Episodes
+can jump to the show editor. Edits can be forgotten to go back to
+scraped data on the next scrape.
+---
+ res/layout/dialog_edit_metadata.xml           | 130 ++++++++
+ res/values-pl/strings.xml                     |  17 ++
+ res/values/strings.xml                        |  17 ++
+ res/values/styles.xml                         |   2 +
+ .../video/info/MetadataEditDialog.java        | 279 ++++++++++++++++++
+ .../video/info/VideoInfoActivityFragment.java |   3 +
+ .../leanback/details/VideoActionAdapter.java  |   3 +
+ .../details/VideoDetailsFragment.java         |   3 +
+ .../leanback/tvshow/TvshowActionAdapter.java  |   2 +
+ .../video/leanback/tvshow/TvshowFragment.java |   4 +
+ 10 files changed, 460 insertions(+)
+ create mode 100644 res/layout/dialog_edit_metadata.xml
+ create mode 100644 src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java
+
+diff --git a/res/layout/dialog_edit_metadata.xml b/res/layout/dialog_edit_metadata.xml
+new file mode 100644
+index 0000000..deee264
+--- /dev/null
++++ b/res/layout/dialog_edit_metadata.xml
+@@ -0,0 +1,130 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Licensed under the Apache License, Version 2.0 -->
++<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content">
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="vertical"
++        android:paddingStart="24dp"
++        android:paddingTop="8dp"
++        android:paddingEnd="24dp">
++
++        <com.google.android.material.textfield.TextInputLayout
++            android:id="@+id/edit_metadata_title_layout"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:hint="@string/metadata_edit_title_hint">
++            <com.google.android.material.textfield.TextInputEditText
++                android:id="@+id/edit_metadata_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:imeOptions="actionNext"
++                android:inputType="textCapSentences" />
++        </com.google.android.material.textfield.TextInputLayout>
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="8dp"
++            android:orientation="horizontal">
++
++            <com.google.android.material.textfield.TextInputLayout
++                android:id="@+id/edit_metadata_year_layout"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginEnd="8dp"
++                android:layout_weight="1"
++                android:hint="@string/metadata_edit_year_hint">
++                <com.google.android.material.textfield.TextInputEditText
++                    android:id="@+id/edit_metadata_year"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="number"
++                    android:maxLength="4" />
++            </com.google.android.material.textfield.TextInputLayout>
++
++            <com.google.android.material.textfield.TextInputLayout
++                android:id="@+id/edit_metadata_season_layout"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginEnd="8dp"
++                android:layout_weight="1"
++                android:hint="@string/metadata_edit_season_hint">
++                <com.google.android.material.textfield.TextInputEditText
++                    android:id="@+id/edit_metadata_season"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="number"
++                    android:maxLength="4" />
++            </com.google.android.material.textfield.TextInputLayout>
++
++            <com.google.android.material.textfield.TextInputLayout
++                android:id="@+id/edit_metadata_episode_layout"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_marginEnd="8dp"
++                android:layout_weight="1"
++                android:hint="@string/metadata_edit_episode_hint">
++                <com.google.android.material.textfield.TextInputEditText
++                    android:id="@+id/edit_metadata_episode"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="number"
++                    android:maxLength="4" />
++            </com.google.android.material.textfield.TextInputLayout>
++
++            <com.google.android.material.textfield.TextInputLayout
++                android:id="@+id/edit_metadata_rating_layout"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:hint="@string/metadata_edit_rating_hint">
++                <com.google.android.material.textfield.TextInputEditText
++                    android:id="@+id/edit_metadata_rating"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:inputType="numberDecimal"
++                    android:maxLength="4" />
++            </com.google.android.material.textfield.TextInputLayout>
++        </LinearLayout>
++
++        <com.google.android.material.textfield.TextInputLayout
++            android:id="@+id/edit_metadata_content_rating_layout"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="8dp"
++            android:hint="@string/metadata_edit_content_rating_hint">
++            <com.google.android.material.textfield.TextInputEditText
++                android:id="@+id/edit_metadata_content_rating"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:inputType="textCapCharacters" />
++        </com.google.android.material.textfield.TextInputLayout>
++
++        <com.google.android.material.textfield.TextInputLayout
++            android:id="@+id/edit_metadata_plot_layout"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="8dp"
++            android:hint="@string/metadata_edit_plot_hint">
++            <com.google.android.material.textfield.TextInputEditText
++                android:id="@+id/edit_metadata_plot"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="top"
++                android:inputType="textCapSentences|textMultiLine"
++                android:minLines="4" />
++        </com.google.android.material.textfield.TextInputLayout>
++
++        <TextView
++            android:id="@+id/edit_metadata_note"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_marginTop="8dp"
++            android:text="@string/metadata_edit_note"
++            android:textAppearance="?attr/textAppearanceBodySmall" />
++    </LinearLayout>
++</ScrollView>
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index b6c7108..beb363d 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -989,4 +989,21 @@
+     <string name="ui_choice_tablet">Interfejs tabletowy</string>
+     <string name="ui_choice_help">Możesz zmienić wybór w ustawieniach później</string>
+     <string name="workgroup">Grupa robocza</string>
++    <!-- metadata editing -->
++    <string name="metadata_edit">Edytuj informacje</string>
++    <string name="metadata_edit_show">Edytuj informacje o serialu</string>
++    <string name="metadata_edit_title_hint">Tytuł</string>
++    <string name="metadata_edit_year_hint">Rok</string>
++    <string name="metadata_edit_season_hint">Sezon</string>
++    <string name="metadata_edit_episode_hint">Odcinek</string>
++    <string name="metadata_edit_rating_hint">Ocena /10</string>
++    <string name="metadata_edit_content_rating_hint">Kategoria wiekowa</string>
++    <string name="metadata_edit_plot_hint">Opis</string>
++    <string name="metadata_edit_note">Zmiany są zapisywane tylko na tym urządzeniu i przetrwają ponowne scrapowanie biblioteki.</string>
++    <string name="metadata_edit_save">Zapisz</string>
++    <string name="metadata_edit_reset">Zapomnij moje zmiany</string>
++    <string name="metadata_edit_saved">Zaktualizowano informacje</string>
++    <string name="metadata_edit_reset_done">Twoje zmiany nie będą już nadpisywać danych ze scrapera</string>
++    <string name="metadata_edit_invalid">Popraw zaznaczone pola</string>
++    <string name="metadata_edit_unavailable">Najpierw zescrapuj ten film, aby edytować informacje</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 951f74b..4ae6fe0 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1084,4 +1084,21 @@
+     <string name="ui_choice_help">You can change your choice in the application settings later</string>
+     <string name="workgroup">Workgroup</string>
+ 
++    <!-- metadata editing -->
++    <string name="metadata_edit">Edit info</string>
++    <string name="metadata_edit_show">Edit TV show info</string>
++    <string name="metadata_edit_title_hint">Title</string>
++    <string name="metadata_edit_year_hint">Year</string>
++    <string name="metadata_edit_season_hint">Season</string>
++    <string name="metadata_edit_episode_hint">Episode</string>
++    <string name="metadata_edit_rating_hint">Rating /10</string>
++    <string name="metadata_edit_content_rating_hint">Age rating</string>
++    <string name="metadata_edit_plot_hint">Plot</string>
++    <string name="metadata_edit_note">Your changes stay on this device and are kept when the library is scraped again.</string>
++    <string name="metadata_edit_save">Save</string>
++    <string name="metadata_edit_reset">Forget my edits</string>
++    <string name="metadata_edit_saved">Info updated</string>
++    <string name="metadata_edit_reset_done">Your edits will no longer override scraped info</string>
++    <string name="metadata_edit_invalid">Check the highlighted fields</string>
++    <string name="metadata_edit_unavailable">Scrape this video first to edit its info</string>
+ </resources>
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index ebafafd..e8960ed 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -288,4 +288,6 @@
+     <style name="ToolbarTitle" parent="@style/TextAppearance.Widget.AppCompat.Toolbar.Title">
+         <item name="android:textSize">20sp</item>
+     </style>
++    <!-- Material 3 theme carried by dialogs shown from both AppCompat and leanback screens -->
++    <style name="MetadataEditDialogTheme" parent="Theme.Material3.DayNight.NoActionBar" />
+ </resources>
+diff --git a/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java b/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java
+new file mode 100644
+index 0000000..8ae7ddd
+--- /dev/null
++++ b/src/main/java/com/archos/mediacenter/video/info/MetadataEditDialog.java
+@@ -0,0 +1,279 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediacenter.video.info;
++
++import android.app.Activity;
++import android.content.Context;
++import android.os.Handler;
++import android.os.Looper;
++import android.text.TextUtils;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.widget.Button;
++import android.widget.Toast;
++
++import androidx.appcompat.app.AlertDialog;
++import androidx.appcompat.view.ContextThemeWrapper;
++
++import com.archos.mediacenter.video.R;
++import com.archos.mediacenter.video.browser.adapters.object.Episode;
++import com.archos.mediacenter.video.browser.adapters.object.Movie;
++import com.archos.mediacenter.video.browser.adapters.object.Video;
++import com.archos.mediascraper.BaseTags;
++import com.archos.mediascraper.EpisodeTags;
++import com.archos.mediascraper.MetadataOverrides;
++import com.archos.mediascraper.MovieTags;
++import com.archos.mediascraper.ShowTags;
++import com.archos.mediascraper.TagsFactory;
++import com.google.android.material.dialog.MaterialAlertDialogBuilder;
++import com.google.android.material.textfield.TextInputEditText;
++import com.google.android.material.textfield.TextInputLayout;
++
++import org.json.JSONException;
++import org.json.JSONObject;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import java.util.Locale;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++
++/**
++ * Edit the scraped info of a movie, an episode or a TV show.
++ *
++ * Works from any activity (phone AppCompat screens and leanback TV screens): the dialog brings its
++ * own Material 3 theme. Changes go to the device database only, never to the media source, and are
++ * remembered by {@link MetadataOverrides} so a later scrape does not undo them.
++ */
++public final class MetadataEditDialog {
++
++    private static final Logger log = LoggerFactory.getLogger(MetadataEditDialog.class);
++
++    private static final ExecutorService sExecutor = Executors.newSingleThreadExecutor();
++    private static final Handler sMainHandler = new Handler(Looper.getMainLooper());
++
++    private enum Kind { MOVIE, EPISODE, SHOW }
++
++    private MetadataEditDialog() {}
++
++    /** Edit the movie or the episode behind this video. */
++    public static void show(Activity activity, Video video) {
++        if (video == null) return;
++        final Context app = activity.getApplicationContext();
++        final String path = video.getFilePath();
++        sExecutor.execute(() -> {
++            BaseTags tags = null;
++            if (video instanceof Movie || video instanceof Episode) {
++                try {
++                    tags = video.getFullScraperTags(app);
++                } catch (Exception e) {
++                    log.warn("show: cannot load tags for {}", path, e);
++                }
++            }
++            final BaseTags loaded = tags;
++            sMainHandler.post(() -> {
++                if (activity.isFinishing()) return;
++                if (loaded instanceof MovieTags) showDialog(activity, Kind.MOVIE, loaded, path);
++                else if (loaded instanceof EpisodeTags) showDialog(activity, Kind.EPISODE, loaded, path);
++                else Toast.makeText(activity, R.string.metadata_edit_unavailable, Toast.LENGTH_SHORT).show();
++            });
++        });
++    }
++
++    /** Edit a TV show from its scraper database id. */
++    public static void showForShow(Activity activity, long showId) {
++        final Context app = activity.getApplicationContext();
++        sExecutor.execute(() -> {
++            ShowTags tags = null;
++            try {
++                tags = TagsFactory.buildShowTags(app, showId);
++            } catch (Exception e) {
++                log.warn("showForShow: cannot load show {}", showId, e);
++            }
++            final ShowTags loaded = tags;
++            sMainHandler.post(() -> {
++                if (activity.isFinishing()) return;
++                if (loaded != null) showDialog(activity, Kind.SHOW, loaded, null);
++                else Toast.makeText(activity, R.string.metadata_edit_unavailable, Toast.LENGTH_SHORT).show();
++            });
++        });
++    }
++
++    private static void showDialog(Activity activity, Kind kind, BaseTags tags, String path) {
++        Context themed = new ContextThemeWrapper(activity, R.style.MetadataEditDialogTheme);
++        View view = LayoutInflater.from(themed).inflate(R.layout.dialog_edit_metadata, null);
++        Fields f = new Fields(view);
++
++        f.title.setText(tags.getTitle());
++        f.plot.setText(tags.getPlot());
++        if (tags.getRating() > 0) f.rating.setText(formatRating(tags.getRating()));
++
++        f.yearLayout.setVisibility(kind == Kind.EPISODE ? View.GONE : View.VISIBLE);
++        f.seasonLayout.setVisibility(kind == Kind.EPISODE ? View.VISIBLE : View.GONE);
++        f.episodeLayout.setVisibility(kind == Kind.EPISODE ? View.VISIBLE : View.GONE);
++        f.contentRatingLayout.setVisibility(kind == Kind.MOVIE ? View.VISIBLE : View.GONE);
++
++        String overrideKey = null;
++        switch (kind) {
++            case MOVIE: {
++                MovieTags m = (MovieTags) tags;
++                if (m.getYear() > 0) f.year.setText(String.valueOf(m.getYear()));
++                f.contentRating.setText(m.getContentRating());
++                overrideKey = path == null ? null : MetadataOverrides.movieKey(path);
++                break;
++            }
++            case EPISODE: {
++                EpisodeTags e = (EpisodeTags) tags;
++                f.season.setText(String.valueOf(e.getSeason()));
++                f.episode.setText(String.valueOf(e.getEpisode()));
++                overrideKey = path == null ? null : MetadataOverrides.episodeKey(path);
++                break;
++            }
++            case SHOW: {
++                ShowTags s = (ShowTags) tags;
++                if (s.getPremieredYear() > 0) f.year.setText(String.valueOf(s.getPremieredYear()));
++                overrideKey = s.getOnlineId() > 0 ? MetadataOverrides.showKey(s.getOnlineId()) : null;
++                break;
++            }
++        }
++
++        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(themed)
++                .setTitle(kind == Kind.SHOW ? R.string.metadata_edit_show : R.string.metadata_edit)
++                .setView(view)
++                .setPositiveButton(R.string.metadata_edit_save, null)
++                .setNegativeButton(android.R.string.cancel, null);
++        final String key = overrideKey;
++        if (key != null && MetadataOverrides.has(activity, key)) {
++            builder.setNeutralButton(R.string.metadata_edit_reset, (d, w) -> {
++                MetadataOverrides.clear(activity, key);
++                Toast.makeText(activity, R.string.metadata_edit_reset_done, Toast.LENGTH_LONG).show();
++            });
++        } else if (kind == Kind.EPISODE && ((EpisodeTags) tags).getShowId() > 0) {
++            final long showId = ((EpisodeTags) tags).getShowId();
++            builder.setNeutralButton(R.string.metadata_edit_show, (d, w) -> showForShow(activity, showId));
++        }
++        AlertDialog dialog = builder.create();
++        dialog.setOnShowListener(d -> {
++            Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
++            save.setOnClickListener(v -> {
++                JSONObject edits = collect(kind, f);
++                if (edits == null) {
++                    Toast.makeText(activity, R.string.metadata_edit_invalid, Toast.LENGTH_SHORT).show();
++                    return;
++                }
++                final Context app = activity.getApplicationContext();
++                sExecutor.execute(() -> {
++                    switch (kind) {
++                        case MOVIE: MetadataOverrides.editMovie(app, tags.getId(), path, edits); break;
++                        case EPISODE: MetadataOverrides.editEpisode(app, tags.getId(), path, edits); break;
++                        case SHOW: MetadataOverrides.editShow(app, tags.getId(), tags.getOnlineId(), edits); break;
++                    }
++                    sMainHandler.post(() -> Toast.makeText(app, R.string.metadata_edit_saved, Toast.LENGTH_SHORT).show());
++                });
++                dialog.dismiss();
++            });
++        });
++        dialog.show();
++        f.title.requestFocus();
++    }
++
++    /** @return the edits, or null when a field is invalid (the field then shows an error) */
++    private static JSONObject collect(Kind kind, Fields f) {
++        boolean ok = true;
++        JSONObject edits = new JSONObject();
++        try {
++            String title = text(f.title);
++            if (TextUtils.isEmpty(title)) {
++                f.titleLayout.setError(" ");
++                ok = false;
++            } else {
++                f.titleLayout.setError(null);
++                edits.put(MetadataOverrides.TITLE, title);
++            }
++            edits.put(MetadataOverrides.PLOT, text(f.plot));
++
++            String rating = text(f.rating).replace(',', '.');
++            f.ratingLayout.setError(null);
++            if (!rating.isEmpty()) {
++                Float r = parseFloat(rating);
++                if (r == null || r < 0 || r > 10) { f.ratingLayout.setError(" "); ok = false; }
++                else edits.put(MetadataOverrides.RATING, r.doubleValue());
++            }
++
++            if (kind != Kind.EPISODE) {
++                String year = text(f.year);
++                f.yearLayout.setError(null);
++                if (!year.isEmpty()) {
++                    Integer y = parseInt(year);
++                    if (y == null || y < 1870 || y > 2200) { f.yearLayout.setError(" "); ok = false; }
++                    else edits.put(MetadataOverrides.YEAR, y.intValue());
++                }
++            }
++            if (kind == Kind.MOVIE) {
++                edits.put(MetadataOverrides.CONTENT_RATING, text(f.contentRating));
++            }
++            if (kind == Kind.EPISODE) {
++                Integer season = parseInt(text(f.season));
++                Integer episode = parseInt(text(f.episode));
++                f.seasonLayout.setError(season == null || season < 0 ? " " : null);
++                f.episodeLayout.setError(episode == null || episode < 0 ? " " : null);
++                if (season == null || season < 0 || episode == null || episode < 0) ok = false;
++                else {
++                    edits.put(MetadataOverrides.SEASON, season.intValue());
++                    edits.put(MetadataOverrides.EPISODE, episode.intValue());
++                }
++            }
++        } catch (JSONException e) {
++            log.error("collect: failed", e);
++            return null;
++        }
++        return ok ? edits : null;
++    }
++
++    private static String text(TextInputEditText e) {
++        return e.getText() == null ? "" : e.getText().toString().trim();
++    }
++
++    private static Integer parseInt(String s) {
++        try { return Integer.valueOf(s); } catch (NumberFormatException e) { return null; }
++    }
++
++    private static Float parseFloat(String s) {
++        try { return Float.valueOf(s); } catch (NumberFormatException e) { return null; }
++    }
++
++    private static String formatRating(float rating) {
++        return String.format(Locale.ROOT, "%.1f", rating);
++    }
++
++    private static final class Fields {
++        final TextInputLayout titleLayout, yearLayout, seasonLayout, episodeLayout, ratingLayout, contentRatingLayout;
++        final TextInputEditText title, year, season, episode, rating, contentRating, plot;
++
++        Fields(View v) {
++            titleLayout = v.findViewById(R.id.edit_metadata_title_layout);
++            yearLayout = v.findViewById(R.id.edit_metadata_year_layout);
++            seasonLayout = v.findViewById(R.id.edit_metadata_season_layout);
++            episodeLayout = v.findViewById(R.id.edit_metadata_episode_layout);
++            ratingLayout = v.findViewById(R.id.edit_metadata_rating_layout);
++            contentRatingLayout = v.findViewById(R.id.edit_metadata_content_rating_layout);
++            title = v.findViewById(R.id.edit_metadata_title);
++            year = v.findViewById(R.id.edit_metadata_year);
++            season = v.findViewById(R.id.edit_metadata_season);
++            episode = v.findViewById(R.id.edit_metadata_episode);
++            rating = v.findViewById(R.id.edit_metadata_rating);
++            contentRating = v.findViewById(R.id.edit_metadata_content_rating);
++            plot = v.findViewById(R.id.edit_metadata_plot);
++        }
++    }
++}
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 7857d58..41ba0a0 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -1098,6 +1098,7 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         mScraperContainer.setVisibility(View.VISIBLE);
+         mScraperPlotContainer.setVisibility(View.VISIBLE);
+ 
++        addMenu(0, R.string.metadata_edit, 0, R.string.metadata_edit);
+         addMenu(0, R.string.info_menu_backdrop_select, 0, R.string.info_menu_backdrop_select);
+         addMenu(0, R.string.info_menu_poster_select, 0, R.string.info_menu_poster_select);
+         addMenu(0, R.string.scrap_remove, DELETE_GROUP, R.string.scrap_remove);
+@@ -1371,6 +1372,8 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         int menuItemId = item.getItemId();
+         if (menuItemId == R.string.video_browser_unindex_file) {
+             DbUtils.markAsHiddenByUser(getActivity(), mCurrentVideo);
++        } else if (menuItemId == R.string.metadata_edit) {
++            MetadataEditDialog.show(getActivity(), mCurrentVideo);
+         } else if (menuItemId == R.string.scrap_remove) {
+             DbUtils.deleteScraperInfo(getActivity(), mCurrentVideo);
+         } else if (menuItemId == R.string.info_menu_backdrop_select) {
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java
+index 0443daf..6221840 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java
+@@ -58,6 +58,7 @@ public class VideoActionAdapter extends SparseArrayObjectAdapter {
+     public static final int ACTION_CONFIRM_DELETE = 41;
+     public static final int ACTION_ADD_TO_LIST = 42;
+     public static final int ACTION_REMOVE_FROM_LIST = 43;
++    public static final int ACTION_EDIT_METADATA = 44;
+ 
+     final Context mContext;
+     private Video mCurrentVideo;
+@@ -154,8 +155,10 @@ public class VideoActionAdapter extends SparseArrayObjectAdapter {
+                 else
+                     clear(ACTION_REMOVE_FROM_LIST);
+                 set(ACTION_ADD_TO_LIST, new Action(ACTION_ADD_TO_LIST, mContext.getString(R.string.add_to_list)));
++                set(ACTION_EDIT_METADATA, new Action(ACTION_EDIT_METADATA, mContext.getString(R.string.metadata_edit)));
+                 set(ACTION_UNSCRAP, new Action(ACTION_UNSCRAP, mContext.getString(R.string.leanback_unscrap)));
+             } else {
++                clear(ACTION_EDIT_METADATA);
+                 clear(ACTION_UNSCRAP);
+                 clear(ACTION_ADD_TO_LIST);
+                 clear(ACTION_REMOVE_FROM_LIST);
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsFragment.java b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsFragment.java
+index 1a2367a..3834f15 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsFragment.java
+@@ -90,6 +90,7 @@ import com.archos.mediacenter.video.R;
+ import com.archos.mediacenter.video.browser.BootupRecommandationService;
+ import com.archos.mediacenter.video.browser.BrowserByIndexedVideos.lists.ListDialog;
+ import com.archos.mediacenter.video.browser.Delete;
++import com.archos.mediacenter.video.info.MetadataEditDialog;
+ import com.archos.mediacenter.video.browser.adapters.mappers.TvshowCursorMapper;
+ import com.archos.mediacenter.video.browser.adapters.mappers.VideoCursorMapper;
+ import com.archos.mediacenter.video.browser.adapters.object.Episode;
+@@ -852,6 +853,8 @@ public class VideoDetailsFragment extends DetailsFragmentWithLessTopOffset imple
+                     intent.putExtra(ManualVideoScrappingActivity.EXTRA_VIDEO, mVideo);
+                     startActivity(intent);
+                 }
++            } else if (action.getId() == VideoActionAdapter.ACTION_EDIT_METADATA) {
++                MetadataEditDialog.show(getActivity(), mVideo);
+             } else if (action.getId() == VideoActionAdapter.ACTION_UNSCRAP) {
+                 DbUtils.deleteScraperInfo(getActivity(),mVideo); // TODO should probably be in an async task
+             }
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
+index 7c92ec8..354af74 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
+@@ -37,6 +37,7 @@ public class TvshowActionAdapter extends SparseArrayObjectAdapter {
+     public static final int ACTION_UNINDEX = 4;
+     public static final int ACTION_CHANGE_INFO = 5;
+     public static final int ACTION_DELETE = 6;
++    public static final int ACTION_EDIT_METADATA = 7;
+ 
+     final Context mContext;
+ 
+@@ -56,6 +57,7 @@ public class TvshowActionAdapter extends SparseArrayObjectAdapter {
+             set(ACTION_MARK_SHOW_AS_WATCHED, new Action(ACTION_MARK_SHOW_AS_WATCHED, mContext.getString(R.string.mark_as_watched)));
+         }
+         set(ACTION_UNINDEX, new Action(ACTION_UNINDEX, context.getString(R.string.video_browser_unindex_file)));
++        set(ACTION_EDIT_METADATA, new Action(ACTION_EDIT_METADATA, context.getString(R.string.metadata_edit)));
+         set(ACTION_CHANGE_INFO, new Action(ACTION_CHANGE_INFO, context.getString(R.string.scrap_change)));
+         update(tvshow);
+     }
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowFragment.java b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowFragment.java
+index 80e1277..09b59e1 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowFragment.java
+@@ -62,6 +62,7 @@ import android.widget.Toast;
+ import androidx.loader.content.CursorLoader;
+ 
+ import com.archos.mediacenter.video.R;
++import com.archos.mediacenter.video.info.MetadataEditDialog;
+ import com.archos.mediacenter.video.browser.adapters.mappers.TvshowCursorMapper;
+ import com.archos.mediacenter.video.utils.ThemeManager;
+ import com.archos.mediacenter.video.browser.adapters.mappers.VideoCursorMapper;
+@@ -263,6 +264,9 @@ public class TvshowFragment extends DetailsFragmentWithLessTopOffset implements
+                     intent.putExtra(SeasonFragment.EXTRA_TVSHOW_POSTER, mTvshow.getPosterUri() != null ? mTvshow.getPosterUri().toString() : null);
+                     startActivity(intent);
+                 }
++                else if (action.getId() == TvshowActionAdapter.ACTION_EDIT_METADATA) {
++                    MetadataEditDialog.showForShow(getActivity(), mTvshow.getTvshowId());
++                }
+                 else if (action.getId() == TvshowActionAdapter.ACTION_CHANGE_INFO) {
+                     if (!NetworkState.isNetworkConnected(getActivity())) {
+                         Toast.makeText(getActivity(), R.string.scrap_no_network, Toast.LENGTH_SHORT).show();

@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:04:30 +0000
+Subject: [PATCH] ReNova: own media and scraper provider authorities
+
+So ReNova Player installs side by side with the original Nova.
+---
+ src/com/archos/mediaprovider/ArchosMediaCommon.java | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/com/archos/mediaprovider/ArchosMediaCommon.java b/src/com/archos/mediaprovider/ArchosMediaCommon.java
+index 60a9c5a..b2f6544 100644
+--- a/src/com/archos/mediaprovider/ArchosMediaCommon.java
++++ b/src/com/archos/mediaprovider/ArchosMediaCommon.java
+@@ -38,13 +38,13 @@ public final class ArchosMediaCommon {
+     public static final String AUTHORITY_ANDROID = "media";
+     public static final String CONTENT_AUTHORITY_SLASH_ANDROID = CONTENT + AUTHORITY_ANDROID + SLASH;
+ 
+-    public static final String AUTHORITY_VIDEO = "com.archos.media.videocommunity";
++    public static final String AUTHORITY_VIDEO = "io.github.oop23.renova.media.video";
+     public static final String CONTENT_AUTHORITY_SLASH_VIDEO = CONTENT + AUTHORITY_VIDEO + SLASH;
+ 
+     public static final String AUTHORITY_MUSIC = "com.archos.media.music";
+     public static final String CONTENT_AUTHORITY_SLASH_MUSIC = CONTENT + AUTHORITY_MUSIC + SLASH;
+ 
+-    public static final String AUTHORITY_SCRAPER = "com.archos.media.scrapercommunity";
++    public static final String AUTHORITY_SCRAPER = "io.github.oop23.renova.media.scraper";
+     public static final String CONTENT_AUTHORITY_SLASH_SCRAPER = CONTENT + AUTHORITY_SCRAPER + SLASH;
+ 
+     /* Scanned files get _id >= this value. (Integer.MAX_VALUE / 2) rounded to human readable form */

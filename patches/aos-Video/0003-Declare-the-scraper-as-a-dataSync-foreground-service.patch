@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:55:25 +0000
+Subject: [PATCH] Declare the scraper as a dataSync foreground service
+
+---
+ AndroidManifest.xml | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index ba89ce3..01787c6 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -53,6 +53,7 @@
+     <!-- Used for scanning and trakt -->
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" android:minSdkVersion="34"/>
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" android:minSdkVersion="34"/>
+ 
+     <!--<uses-permission android:name="android.permission.WRITE_SETTINGS" />-->
+     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+@@ -1191,8 +1192,10 @@
+             android:exported="false"
+             android:foregroundServiceType="mediaPlayback" />
+ 
+-        <service android:name="com.archos.mediascraper.AutoScrapeService"/>
+-            <!-- android:foregroundServiceType="dataSync"/>-->
++        <!-- runs as a dataSync foreground service while scraping so it survives the app going to background -->
++        <service android:name="com.archos.mediascraper.AutoScrapeService"
++            android:exported="false"
++            android:foregroundServiceType="dataSync"/>
+         <service android:name="com.archos.mediascraper.AllCollectionScrapeService"/>
+             <!-- android:foregroundServiceType="dataSync"/>-->
+         <service android:name="com.archos.mediacenter.video.browser.FileManagerService"/>

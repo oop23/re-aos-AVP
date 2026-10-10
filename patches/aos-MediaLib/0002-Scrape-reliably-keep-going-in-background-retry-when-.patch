@@ -1,0 +1,146 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:55:25 +0000
+Subject: [PATCH] Scrape reliably: keep going in background, retry when network
+ is back
+
+Scraping stopped as soon as the app went to background (TV sleep, home
+button, switching app) and only resumed on the next library change or
+app restart, so libraries were filled in randomly. The scrape worker now
+runs as a dataSync foreground service until it is done, and files whose
+scrape failed on a network error are retried when the network returns.
+---
+ .../mediascraper/AutoScrapeService.java       | 72 +++++++++++++++++++
+ 1 file changed, 72 insertions(+)
+
+diff --git a/src/com/archos/mediascraper/AutoScrapeService.java b/src/com/archos/mediascraper/AutoScrapeService.java
+index 452fa71..cf6e418 100644
+--- a/src/com/archos/mediascraper/AutoScrapeService.java
++++ b/src/com/archos/mediascraper/AutoScrapeService.java
+@@ -18,6 +18,9 @@ import android.app.NotificationChannel;
+ import android.app.NotificationManager;
+ import android.app.Service;
+ import android.content.ContentValues;
++import android.content.pm.ServiceInfo;
++import android.net.ConnectivityManager;
++import android.net.Network;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.database.ContentObserver;
+@@ -34,6 +37,7 @@ import android.os.IBinder;
+ import android.os.SystemClock;
+ 
+ import androidx.core.app.NotificationCompat;
++import androidx.core.app.ServiceCompat;
+ import androidx.lifecycle.DefaultLifecycleObserver;
+ import androidx.lifecycle.LifecycleOwner;
+ import androidx.lifecycle.ProcessLifecycleOwner;
+@@ -141,6 +145,9 @@ public class AutoScrapeService extends Service implements DefaultLifecycleObserv
+     private static Context mContext;
+ 
+     private static final int NOTIFICATION_ID = 4;
++    // true while the service runs as a dataSync foreground service: the scrape then survives the
++    // app going to background (TV sleep, home button) instead of stopping half way
++    private volatile boolean mPromotedToForeground = false;
+     private NotificationManager nm;
+     private NotificationCompat.Builder nb;
+     private static final String notifChannelId = "AutoScrapeService_id";
+@@ -653,7 +660,42 @@ public class AutoScrapeService extends Service implements DefaultLifecycleObserv
+         registerObserverInternal(appContext);
+     }
+ 
++    private static final AtomicBoolean sNetworkCallbackRegistered = new AtomicBoolean(false);
++
++    /**
++     * Files whose scrape failed on a network error stay "not scraped": retry them as soon as the
++     * network comes back instead of waiting for the next library change or app restart.
++     */
++    private static void registerNetworkRetry(final Context appContext) {
++        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return;
++        if (!sNetworkCallbackRegistered.compareAndSet(false, true)) return;
++        ConnectivityManager cm = (ConnectivityManager) appContext.getSystemService(Context.CONNECTIVITY_SERVICE);
++        if (cm == null) return;
++        try {
++            cm.registerDefaultNetworkCallback(new ConnectivityManager.NetworkCallback() {
++                @Override
++                public void onAvailable(Network network) {
++                    mHandler.postDelayed(() -> {
++                        if (!isEnable(appContext) || !isForeground || LoaderUtils.getScrapeInProgress()) return;
++                        new Thread(() -> {
++                            if (getPendingNotScrapedCount(appContext) > 0) {
++                                if (log.isDebugEnabled()) log.debug("registerNetworkRetry: network back, retrying pending scrapes");
++                                startService(appContext);
++                            }
++                        }, "scrape-network-retry").start();
++                    }, NETWORK_RETRY_DELAY_MS);
++                }
++            });
++        } catch (Exception e) {
++            sNetworkCallbackRegistered.set(false);
++            log.warn("registerNetworkRetry: failed", e);
++        }
++    }
++    // let DNS/SMB settle after a reconnection before retrying
++    private static final long NETWORK_RETRY_DELAY_MS = 5000;
++
+     private static void registerObserverInternal(final Context appContext) {
++        registerNetworkRetry(appContext);
+         appContext.getContentResolver().registerContentObserver(VideoStore.Video.Media.EXTERNAL_CONTENT_URI, false, new ContentObserver(null) {
+             @Override
+             public void onChange(boolean selfChange) {
+@@ -1239,6 +1281,7 @@ public class AutoScrapeService extends Service implements DefaultLifecycleObserv
+                             sendBroadcast(intent);
+ 
+                             //Kill notification.
++                            demoteFromForeground();
+                             nm.cancel(NOTIFICATION_ID);
+                             stopSelf();
+                         } finally {
+@@ -1255,6 +1298,7 @@ public class AutoScrapeService extends Service implements DefaultLifecycleObserv
+             // Give every scrape pass one opportunity to replace each generated local-artwork file.
+             // Shared show/season targets are deduplicated for the rest of the pass by ScraperImage.
+             ScraperImage.resetLocalArtworkRefreshState();
++            promoteToForeground();
+             worker.start();
+         } catch (RuntimeException e) {
+             releaseScrapeWorker(worker);
+@@ -1407,11 +1451,39 @@ public class AutoScrapeService extends Service implements DefaultLifecycleObserv
+     @Override
+     public void onStop(LifecycleOwner owner) {
+         // App in background
++        Thread scrapeWorker = sScrapeWorker.get();
++        if (mPromotedToForeground && scrapeWorker != null && scrapeWorker.isAlive()) {
++            // keep scraping as a foreground service, the worker stops the service when done
++            if (log.isDebugEnabled()) log.debug("onStop: LifecycleOwner app in background, scrape continues in foreground service");
++            return;
++        }
+         if (log.isDebugEnabled()) log.debug("onStop: LifecycleOwner app in background, stopSelf");
+         cleanup();
+         stopSelf();
+     }
+ 
++    private void promoteToForeground() {
++        if (mPromotedToForeground || nb == null) return;
++        try {
++            ServiceCompat.startForeground(this, NOTIFICATION_ID, nb.build(),
++                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
++            mPromotedToForeground = true;
++        } catch (Exception e) {
++            // e.g. ForegroundServiceStartNotAllowedException: scrape then only runs while the app is visible
++            log.warn("promoteToForeground: not allowed, scraping only while the app is in foreground", e);
++        }
++    }
++
++    private void demoteFromForeground() {
++        if (!mPromotedToForeground) return;
++        mPromotedToForeground = false;
++        try {
++            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
++        } catch (Exception e) {
++            log.warn("demoteFromForeground: failed", e);
++        }
++    }
++
+     @Override
+     public void onStart(LifecycleOwner owner) {
+         if (log.isDebugEnabled()) log.debug("onStart: LifecycleOwner app in foreground");
