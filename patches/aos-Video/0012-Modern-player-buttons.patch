@@ -1,0 +1,371 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:37:57 +0000
+Subject: [PATCH] Modern player buttons
+
+Play/pause sit in a soft translucent circle, rewind/forward use clean
+Material shapes, pressed buttons light up in the ReNova gold. In the
+portrait layout the screen format and notch buttons move to the right
+edge so the transport controls stay centered.
+---
+ res/drawable/new_forward_button.xml          | 15 +++++++--------
+ res/drawable/new_forward_button_disabled.xml | 15 ++++++++++-----
+ res/drawable/new_forward_button_pressed.xml  | 18 +++++++-----------
+ res/drawable/new_pause_button.xml            | 14 ++++++--------
+ res/drawable/new_pause_button_disabled.xml   | 14 +++++++++-----
+ res/drawable/new_pause_button_pressed.xml    | 17 ++++++-----------
+ res/drawable/new_play_button.xml             | 15 ++++++---------
+ res/drawable/new_play_button_disabled.xml    | 14 +++++++++-----
+ res/drawable/new_play_button_pressed.xml     | 18 ++++++------------
+ res/drawable/new_rewind_button.xml           | 15 +++++++--------
+ res/drawable/new_rewind_button_disabled.xml  | 15 ++++++++++-----
+ res/drawable/new_rewind_button_pressed.xml   | 18 +++++++-----------
+ res/layout/player_controller_inside.xml      | 18 ++++++++++--------
+ 13 files changed, 100 insertions(+), 106 deletions(-)
+
+diff --git a/res/drawable/new_forward_button.xml b/res/drawable/new_forward_button.xml
+index 12e9aa3..5bf6c66 100644
+--- a/res/drawable/new_forward_button.xml
++++ b/res/drawable/new_forward_button.xml
+@@ -1,12 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M111.9,56.77C112.3,57.05 112.55,57.51 112.55,58C112.55,58.49 112.3,58.95 111.9,59.23C104.06,64.67 72.58,86.45 63.68,92.61C63.23,92.93 62.63,92.97 62.13,92.71C61.64,92.45 61.33,91.94 61.33,91.38C61.33,79.77 61.33,36.23 61.33,24.62C61.33,24.06 61.64,23.55 62.13,23.29C62.63,23.03 63.23,23.07 63.68,23.39C72.58,29.55 104.05,51.34 111.9,56.77Z"
+-      android:fillColor="#ffffff"/>
+-  <path
+-      android:pathData="M67.6,56.77C68.01,57.05 68.25,57.51 68.25,58C68.25,58.49 68.01,58.95 67.6,59.23C59.76,64.67 28.28,86.45 19.39,92.61C18.93,92.93 18.33,92.97 17.84,92.71C17.34,92.45 17.03,91.94 17.03,91.38C17.03,79.77 17.03,36.23 17.03,24.62C17.03,24.06 17.34,23.55 17.84,23.29C18.33,23.03 18.93,23.07 19.39,23.39C28.28,29.55 59.76,51.34 67.6,56.77Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.62" android:scaleY="0.62">
++        <path android:pathData="M4,18l8.5,-6L4,6v12zM13,6v12l8.5,-6L13,6z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
++    </group>
+ </vector>
+diff --git a/res/drawable/new_forward_button_disabled.xml b/res/drawable/new_forward_button_disabled.xml
+index fd50528..335158e 100644
+--- a/res/drawable/new_forward_button_disabled.xml
++++ b/res/drawable/new_forward_button_disabled.xml
+@@ -1,6 +1,11 @@
+-<vector android:alpha="0.5" android:height="116dp"
+-    android:viewportHeight="116" android:viewportWidth="116"
+-    android:width="116dp" xmlns:android="http://schemas.android.com/apk/res/android">
+-    <path android:fillColor="#ffffff" android:pathData="M111.9,56.77C112.3,57.05 112.55,57.51 112.55,58C112.55,58.49 112.3,58.95 111.9,59.23C104.06,64.67 72.58,86.45 63.68,92.61C63.23,92.93 62.63,92.97 62.13,92.71C61.64,92.45 61.33,91.94 61.33,91.38C61.33,79.77 61.33,36.23 61.33,24.62C61.33,24.06 61.64,23.55 62.13,23.29C62.63,23.03 63.23,23.07 63.68,23.39C72.58,29.55 104.05,51.34 111.9,56.77Z"/>
+-    <path android:fillColor="#ffffff" android:pathData="M67.6,56.77C68.01,57.05 68.25,57.51 68.25,58C68.25,58.49 68.01,58.95 67.6,59.23C59.76,64.67 28.28,86.45 19.39,92.61C18.93,92.93 18.33,92.97 17.84,92.71C17.34,92.45 17.03,91.94 17.03,91.38C17.03,79.77 17.03,36.23 17.03,24.62C17.03,24.06 17.34,23.55 17.84,23.29C18.33,23.03 18.93,23.07 19.39,23.39C28.28,29.55 59.76,51.34 67.6,56.77Z"/>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.62" android:scaleY="0.62">
++        <path android:pathData="M4,18l8.5,-6L4,6v12zM13,6v12l8.5,-6L13,6z" android:fillColor="#FFFFFF" android:fillAlpha="0.35" />
++    </group>
+ </vector>
+diff --git a/res/drawable/new_forward_button_pressed.xml b/res/drawable/new_forward_button_pressed.xml
+index 0d71ece..a5e07e5 100644
+--- a/res/drawable/new_forward_button_pressed.xml
++++ b/res/drawable/new_forward_button_pressed.xml
+@@ -1,15 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M-0,58a58,58 96.14,1 0,116 0a58,58 96.14,1 0,-116 0z"
+-      android:fillColor="#00A7FF"/>
+-  <path
+-      android:pathData="M111.9,56.77C112.3,57.05 112.55,57.51 112.55,58C112.55,58.49 112.3,58.95 111.9,59.23C104.06,64.67 72.58,86.45 63.68,92.61C63.23,92.93 62.63,92.97 62.13,92.71C61.64,92.45 61.33,91.94 61.33,91.38C61.33,79.77 61.33,36.23 61.33,24.62C61.33,24.06 61.64,23.55 62.13,23.29C62.63,23.03 63.23,23.07 63.68,23.39C72.58,29.55 104.05,51.34 111.9,56.77Z"
+-      android:fillColor="#ffffff"/>
+-  <path
+-      android:pathData="M67.6,56.77C68.01,57.05 68.25,57.51 68.25,58C68.25,58.49 68.01,58.95 67.6,59.23C59.76,64.67 28.28,86.45 19.39,92.61C18.93,92.93 18.33,92.97 17.84,92.71C17.34,92.45 17.03,91.94 17.03,91.38C17.03,79.77 17.03,36.23 17.03,24.62C17.03,24.06 17.34,23.55 17.84,23.29C18.33,23.03 18.93,23.07 19.39,23.39C28.28,29.55 59.76,51.34 67.6,56.77Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.62" android:scaleY="0.62">
++        <path android:pathData="M4,18l8.5,-6L4,6v12zM13,6v12l8.5,-6L13,6z" android:fillColor="#FFD27A" android:fillAlpha="1" />
++    </group>
+ </vector>
+diff --git a/res/drawable/new_pause_button.xml b/res/drawable/new_pause_button.xml
+index e341d9a..98a0fbe 100644
+--- a/res/drawable/new_pause_button.xml
++++ b/res/drawable/new_pause_button.xml
+@@ -1,12 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M87.57,24.43C87.57,23.09 86.48,22 85.14,22L66.81,22C65.47,22 64.38,23.09 64.38,24.43L64.38,91.57C64.38,92.91 65.47,94 66.81,94L85.14,94C86.48,94 87.57,92.91 87.57,91.57L87.57,24.43Z"
+-      android:fillColor="#ffffff"/>
+-  <path
+-      android:pathData="M51.52,24.42C51.52,23.08 50.43,22 49.1,22L30.85,22C29.51,22 28.43,23.08 28.43,24.42L28.43,91.58C28.43,92.92 29.51,94 30.85,94L49.1,94C50.43,94 51.52,92.92 51.52,91.58L51.52,24.42Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path android:pathData="M12,0.5 A11.5,11.5 0 1,1 11.99,0.5 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.18" />
++    <path android:pathData="M8.5,7 L10.5,7 C10.8,7 11,7.2 11,7.5 L11,16.5 C11,16.8 10.8,17 10.5,17 L8.5,17 C8.2,17 8,16.8 8,16.5 L8,7.5 C8,7.2 8.2,7 8.5,7 Z M13.5,7 L15.5,7 C15.8,7 16,7.2 16,7.5 L16,16.5 C16,16.8 15.8,17 15.5,17 L13.5,17 C13.2,17 13,16.8 13,16.5 L13,7.5 C13,7.2 13.2,7 13.5,7 Z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
+ </vector>
+diff --git a/res/drawable/new_pause_button_disabled.xml b/res/drawable/new_pause_button_disabled.xml
+index a3282cf..63e92e3 100644
+--- a/res/drawable/new_pause_button_disabled.xml
++++ b/res/drawable/new_pause_button_disabled.xml
+@@ -1,6 +1,10 @@
+-<vector android:alpha="0.5" android:height="116dp"
+-    android:viewportHeight="116" android:viewportWidth="116"
+-    android:width="116dp" xmlns:android="http://schemas.android.com/apk/res/android">
+-    <path android:fillColor="#ffffff" android:pathData="M87.57,24.43C87.57,23.09 86.48,22 85.14,22L66.81,22C65.47,22 64.38,23.09 64.38,24.43L64.38,91.57C64.38,92.91 65.47,94 66.81,94L85.14,94C86.48,94 87.57,92.91 87.57,91.57L87.57,24.43Z"/>
+-    <path android:fillColor="#ffffff" android:pathData="M51.52,24.42C51.52,23.08 50.43,22 49.1,22L30.85,22C29.51,22 28.43,23.08 28.43,24.42L28.43,91.58C28.43,92.92 29.51,94 30.85,94L49.1,94C50.43,94 51.52,92.92 51.52,91.58L51.52,24.42Z"/>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path android:pathData="M12,0.5 A11.5,11.5 0 1,1 11.99,0.5 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.08" />
++    <path android:pathData="M8.5,7 L10.5,7 C10.8,7 11,7.2 11,7.5 L11,16.5 C11,16.8 10.8,17 10.5,17 L8.5,17 C8.2,17 8,16.8 8,16.5 L8,7.5 C8,7.2 8.2,7 8.5,7 Z M13.5,7 L15.5,7 C15.8,7 16,7.2 16,7.5 L16,16.5 C16,16.8 15.8,17 15.5,17 L13.5,17 C13.2,17 13,16.8 13,16.5 L13,7.5 C13,7.2 13.2,7 13.5,7 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.35" />
+ </vector>
+diff --git a/res/drawable/new_pause_button_pressed.xml b/res/drawable/new_pause_button_pressed.xml
+index a406a0f..da374af 100644
+--- a/res/drawable/new_pause_button_pressed.xml
++++ b/res/drawable/new_pause_button_pressed.xml
+@@ -1,15 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M-0,58a58,58 96.14,1 0,116 0a58,58 96.14,1 0,-116 0z"
+-      android:fillColor="#00A7FF"/>
+-  <path
+-      android:pathData="M87.57,24.43C87.57,23.09 86.48,22 85.14,22L66.81,22C65.47,22 64.38,23.09 64.38,24.43L64.38,91.57C64.38,92.91 65.47,94 66.81,94L85.14,94C86.48,94 87.57,92.91 87.57,91.57L87.57,24.43Z"
+-      android:fillColor="#ffffff"/>
+-  <path
+-      android:pathData="M51.52,24.42C51.52,23.08 50.43,22 49.1,22L30.85,22C29.51,22 28.43,23.08 28.43,24.42L28.43,91.58C28.43,92.92 29.51,94 30.85,94L49.1,94C50.43,94 51.52,92.92 51.52,91.58L51.52,24.42Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path android:pathData="M12,0.5 A11.5,11.5 0 1,1 11.99,0.5 Z" android:fillColor="#FFD27A" android:fillAlpha="0.45" />
++    <path android:pathData="M8.5,7 L10.5,7 C10.8,7 11,7.2 11,7.5 L11,16.5 C11,16.8 10.8,17 10.5,17 L8.5,17 C8.2,17 8,16.8 8,16.5 L8,7.5 C8,7.2 8.2,7 8.5,7 Z M13.5,7 L15.5,7 C15.8,7 16,7.2 16,7.5 L16,16.5 C16,16.8 15.8,17 15.5,17 L13.5,17 C13.2,17 13,16.8 13,16.5 L13,7.5 C13,7.2 13.2,7 13.5,7 Z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
+ </vector>
+diff --git a/res/drawable/new_play_button.xml b/res/drawable/new_play_button.xml
+index 2eaa76f..2bd01c0 100644
+--- a/res/drawable/new_play_button.xml
++++ b/res/drawable/new_play_button.xml
+@@ -1,13 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M93.5,57.01C93.91,57.29 94.16,57.76 94.16,58.25C94.16,58.75 93.91,59.21 93.5,59.49C85.35,65.05 52.17,87.67 43.03,93.91C42.57,94.22 41.97,94.25 41.48,93.99C40.99,93.73 40.68,93.22 40.68,92.67C40.68,80.85 40.68,35.65 40.68,23.84C40.68,23.28 40.99,22.77 41.48,22.51C41.97,22.25 42.57,22.29 43.03,22.6C52.17,28.84 85.35,51.46 93.5,57.01Z"
+-      android:fillColor="#ffffff"
+-      android:fillAlpha="0.24"/>
+-  <path
+-      android:pathData="M93.5,57.01C93.91,57.29 94.16,57.76 94.16,58.25C94.16,58.75 93.91,59.21 93.5,59.49C85.35,65.05 52.17,87.67 43.03,93.91C42.57,94.22 41.97,94.25 41.48,93.99C40.99,93.73 40.68,93.22 40.68,92.67C40.68,80.85 40.68,35.65 40.68,23.84C40.68,23.28 40.99,22.77 41.48,22.51C41.97,22.25 42.57,22.29 43.03,22.6C52.17,28.84 85.35,51.46 93.5,57.01Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path android:pathData="M12,0.5 A11.5,11.5 0 1,1 11.99,0.5 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.18" />
++    <path android:pathData="M9.5,7.2 L9.5,16.8 C9.5,17.4 10.1,17.7 10.6,17.4 L17.8,12.6 C18.3,12.3 18.3,11.7 17.8,11.4 L10.6,6.6 C10.1,6.3 9.5,6.6 9.5,7.2 Z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
+ </vector>
+diff --git a/res/drawable/new_play_button_disabled.xml b/res/drawable/new_play_button_disabled.xml
+index 940d62a..8f946d6 100644
+--- a/res/drawable/new_play_button_disabled.xml
++++ b/res/drawable/new_play_button_disabled.xml
+@@ -1,6 +1,10 @@
+-<vector android:alpha="0.5" android:height="116dp"
+-    android:viewportHeight="116" android:viewportWidth="116"
+-    android:width="116dp" xmlns:android="http://schemas.android.com/apk/res/android">
+-    <path android:fillAlpha="0.24" android:fillColor="#ffffff" android:pathData="M93.5,57.01C93.91,57.29 94.16,57.76 94.16,58.25C94.16,58.75 93.91,59.21 93.5,59.49C85.35,65.05 52.17,87.67 43.03,93.91C42.57,94.22 41.97,94.25 41.48,93.99C40.99,93.73 40.68,93.22 40.68,92.67C40.68,80.85 40.68,35.65 40.68,23.84C40.68,23.28 40.99,22.77 41.48,22.51C41.97,22.25 42.57,22.29 43.03,22.6C52.17,28.84 85.35,51.46 93.5,57.01Z"/>
+-    <path android:fillColor="#ffffff" android:pathData="M93.5,57.01C93.91,57.29 94.16,57.76 94.16,58.25C94.16,58.75 93.91,59.21 93.5,59.49C85.35,65.05 52.17,87.67 43.03,93.91C42.57,94.22 41.97,94.25 41.48,93.99C40.99,93.73 40.68,93.22 40.68,92.67C40.68,80.85 40.68,35.65 40.68,23.84C40.68,23.28 40.99,22.77 41.48,22.51C41.97,22.25 42.57,22.29 43.03,22.6C52.17,28.84 85.35,51.46 93.5,57.01Z"/>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path android:pathData="M12,0.5 A11.5,11.5 0 1,1 11.99,0.5 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.08" />
++    <path android:pathData="M9.5,7.2 L9.5,16.8 C9.5,17.4 10.1,17.7 10.6,17.4 L17.8,12.6 C18.3,12.3 18.3,11.7 17.8,11.4 L10.6,6.6 C10.1,6.3 9.5,6.6 9.5,7.2 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.35" />
+ </vector>
+diff --git a/res/drawable/new_play_button_pressed.xml b/res/drawable/new_play_button_pressed.xml
+index 2da18c0..169c522 100644
+--- a/res/drawable/new_play_button_pressed.xml
++++ b/res/drawable/new_play_button_pressed.xml
+@@ -1,16 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M-0,58a58,58 96.14,1 0,116 0a58,58 96.14,1 0,-116 0z"
+-      android:fillColor="#00A7FF"/>
+-  <path
+-      android:pathData="M93.5,57.01C93.91,57.29 94.16,57.76 94.16,58.25C94.16,58.75 93.91,59.21 93.5,59.49C85.35,65.05 52.17,87.67 43.03,93.91C42.57,94.22 41.97,94.25 41.48,93.99C40.99,93.73 40.68,93.22 40.68,92.67C40.68,80.85 40.68,35.65 40.68,23.84C40.68,23.28 40.99,22.77 41.48,22.51C41.97,22.25 42.57,22.29 43.03,22.6C52.17,28.84 85.35,51.46 93.5,57.01Z"
+-      android:fillColor="#ffffff"
+-      android:fillAlpha="0.24"/>
+-  <path
+-      android:pathData="M93.5,57.01C93.91,57.29 94.16,57.76 94.16,58.25C94.16,58.75 93.91,59.21 93.5,59.49C85.35,65.05 52.17,87.67 43.03,93.91C42.57,94.22 41.97,94.25 41.48,93.99C40.99,93.73 40.68,93.22 40.68,92.67C40.68,80.85 40.68,35.65 40.68,23.84C40.68,23.28 40.99,22.77 41.48,22.51C41.97,22.25 42.57,22.29 43.03,22.6C52.17,28.84 85.35,51.46 93.5,57.01Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path android:pathData="M12,0.5 A11.5,11.5 0 1,1 11.99,0.5 Z" android:fillColor="#FFD27A" android:fillAlpha="0.45" />
++    <path android:pathData="M9.5,7.2 L9.5,16.8 C9.5,17.4 10.1,17.7 10.6,17.4 L17.8,12.6 C18.3,12.3 18.3,11.7 17.8,11.4 L10.6,6.6 C10.1,6.3 9.5,6.6 9.5,7.2 Z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
+ </vector>
+diff --git a/res/drawable/new_rewind_button.xml b/res/drawable/new_rewind_button.xml
+index c7901f8..58b1acc 100644
+--- a/res/drawable/new_rewind_button.xml
++++ b/res/drawable/new_rewind_button.xml
+@@ -1,12 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M3.81,56.77C3.41,57.05 3.17,57.51 3.17,58C3.17,58.49 3.41,58.95 3.81,59.23C11.66,64.67 43.13,86.45 52.03,92.61C52.49,92.93 53.09,92.97 53.58,92.71C54.07,92.45 54.38,91.94 54.38,91.38C54.38,79.77 54.38,36.23 54.38,24.62C54.38,24.06 54.07,23.55 53.58,23.29C53.09,23.03 52.49,23.07 52.03,23.39C43.13,29.55 11.66,51.34 3.81,56.77Z"
+-      android:fillColor="#ffffff"/>
+-  <path
+-      android:pathData="M48.11,56.77C47.71,57.05 47.46,57.51 47.46,58C47.47,58.49 47.71,58.95 48.11,59.23C55.96,64.67 87.43,86.45 96.33,92.61C96.79,92.93 97.38,92.97 97.88,92.71C98.37,92.45 98.68,91.94 98.68,91.38C98.68,79.77 98.68,36.23 98.68,24.62C98.68,24.06 98.37,23.55 97.88,23.29C97.38,23.03 96.79,23.07 96.33,23.39C87.43,29.55 55.96,51.34 48.11,56.77Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.62" android:scaleY="0.62">
++        <path android:pathData="M11,18V6l-8.5,6 8.5,6zM11.5,12l8.5,6V6l-8.5,6z" android:fillColor="#FFFFFF" android:fillAlpha="1" />
++    </group>
+ </vector>
+diff --git a/res/drawable/new_rewind_button_disabled.xml b/res/drawable/new_rewind_button_disabled.xml
+index 88dba28..c53ed40 100644
+--- a/res/drawable/new_rewind_button_disabled.xml
++++ b/res/drawable/new_rewind_button_disabled.xml
+@@ -1,6 +1,11 @@
+-<vector android:alpha="0.5" android:height="116dp"
+-    android:viewportHeight="116" android:viewportWidth="116"
+-    android:width="116dp" xmlns:android="http://schemas.android.com/apk/res/android">
+-    <path android:fillColor="#ffffff" android:pathData="M3.81,56.77C3.41,57.05 3.17,57.51 3.17,58C3.17,58.49 3.41,58.95 3.81,59.23C11.66,64.67 43.13,86.45 52.03,92.61C52.49,92.93 53.09,92.97 53.58,92.71C54.07,92.45 54.38,91.94 54.38,91.38C54.38,79.77 54.38,36.23 54.38,24.62C54.38,24.06 54.07,23.55 53.58,23.29C53.09,23.03 52.49,23.07 52.03,23.39C43.13,29.55 11.66,51.34 3.81,56.77Z"/>
+-    <path android:fillColor="#ffffff" android:pathData="M48.11,56.77C47.71,57.05 47.46,57.51 47.46,58C47.47,58.49 47.71,58.95 48.11,59.23C55.96,64.67 87.43,86.45 96.33,92.61C96.79,92.93 97.38,92.97 97.88,92.71C98.37,92.45 98.68,91.94 98.68,91.38C98.68,79.77 98.68,36.23 98.68,24.62C98.68,24.06 98.37,23.55 97.88,23.29C97.38,23.03 96.79,23.07 96.33,23.39C87.43,29.55 55.96,51.34 48.11,56.77Z"/>
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="116dp"
++    android:height="116dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.62" android:scaleY="0.62">
++        <path android:pathData="M11,18V6l-8.5,6 8.5,6zM11.5,12l8.5,6V6l-8.5,6z" android:fillColor="#FFFFFF" android:fillAlpha="0.35" />
++    </group>
+ </vector>
+diff --git a/res/drawable/new_rewind_button_pressed.xml b/res/drawable/new_rewind_button_pressed.xml
+index aab0b8b..85151de 100644
+--- a/res/drawable/new_rewind_button_pressed.xml
++++ b/res/drawable/new_rewind_button_pressed.xml
+@@ -1,15 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova player button -->
+ <vector xmlns:android="http://schemas.android.com/apk/res/android"
+     android:width="116dp"
+     android:height="116dp"
+-    android:viewportWidth="116"
+-    android:viewportHeight="116">
+-  <path
+-      android:pathData="M-0,58a58,58 96.14,1 0,116 0a58,58 96.14,1 0,-116 0z"
+-      android:fillColor="#00A7FF"/>
+-  <path
+-      android:pathData="M3.81,56.77C3.41,57.05 3.17,57.51 3.17,58C3.17,58.49 3.41,58.95 3.81,59.23C11.66,64.67 43.13,86.45 52.03,92.61C52.49,92.93 53.09,92.97 53.58,92.71C54.07,92.45 54.38,91.94 54.38,91.38C54.38,79.77 54.38,36.23 54.38,24.62C54.38,24.06 54.07,23.55 53.58,23.29C53.09,23.03 52.49,23.07 52.03,23.39C43.13,29.55 11.66,51.34 3.81,56.77Z"
+-      android:fillColor="#ffffff"/>
+-  <path
+-      android:pathData="M48.11,56.77C47.71,57.05 47.47,57.51 47.47,58C47.47,58.49 47.71,58.95 48.11,59.23C55.96,64.67 87.43,86.45 96.33,92.61C96.79,92.93 97.38,92.97 97.88,92.71C98.37,92.45 98.68,91.94 98.68,91.38C98.68,79.77 98.68,36.23 98.68,24.62C98.68,24.06 98.37,23.55 97.88,23.29C97.38,23.03 96.79,23.07 96.33,23.39C87.43,29.55 55.96,51.34 48.11,56.77Z"
+-      android:fillColor="#ffffff"/>
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.62" android:scaleY="0.62">
++        <path android:pathData="M11,18V6l-8.5,6 8.5,6zM11.5,12l8.5,6V6l-8.5,6z" android:fillColor="#FFD27A" android:fillAlpha="1" />
++    </group>
+ </vector>
+diff --git a/res/layout/player_controller_inside.xml b/res/layout/player_controller_inside.xml
+index 8e7c9ef..c75ad0b 100644
+--- a/res/layout/player_controller_inside.xml
++++ b/res/layout/player_controller_inside.xml
+@@ -116,15 +116,16 @@
+             android:id="@+id/button_bar"
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+-            android:layout_marginTop="-6dip" >
++            android:layout_marginTop="-6dip"
++            android:paddingBottom="8dip" >
+ 
+             <ImageButton
+                 android:id="@+id/pause"
+                 style="@style/PlayerControlButton"
+                 android:layout_centerInParent="true"
+-                android:layout_width="58dp"
+-                android:layout_height="58dp"
+-                android:paddingBottom="10dip"
++                android:layout_width="64dp"
++                android:layout_height="64dp"
++                android:paddingBottom="6dip"
+                 android:paddingStart="5dip"
+                 android:paddingEnd="5dip"
+                 android:scaleType="fitCenter"
+@@ -134,7 +135,7 @@
+             <ImageButton
+                 android:id="@+id/backward"
+                 style="@style/PlayerControlButton"
+-                android:layout_marginStart="-12dip"
++                android:layout_marginEnd="20dip"
+                 android:layout_toStartOf="@id/pause"
+                 android:layout_width="58dp"
+                 android:layout_height="58dp"
+@@ -149,6 +150,7 @@
+             <ImageButton
+                 android:id="@+id/forward"
+                 style="@style/PlayerControlButton"
++                android:layout_marginStart="20dip"
+                 android:layout_toEndOf="@id/pause"
+                 android:layout_width="58dp"
+                 android:layout_height="58dp"
+@@ -164,7 +166,7 @@
+                 android:id="@+id/fullscreen_cutouts"
+                 style="@style/PlayerControlButton"
+                 android:layout_marginStart="0dip"
+-                android:layout_toEndOf="@id/forward"
++                android:layout_toStartOf="@id/format"
+                 android:layout_width="58dp"
+                 android:layout_height="58dp"
+                 android:paddingBottom="10dip"
+@@ -179,8 +181,8 @@
+             <ImageButton
+                 android:id="@+id/format"
+                 style="@style/PlayerControlButton"
+-                android:layout_marginStart="0dip"
+-                android:layout_toEndOf="@id/fullscreen_cutouts"
++                android:layout_marginEnd="12dip"
++                android:layout_alignParentEnd="true"
+                 android:layout_width="58dp"
+                 android:layout_height="58dp"
+                 android:paddingBottom="10dip"

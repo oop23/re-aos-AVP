@@ -54,6 +54,11 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **Progress is kept** when you leave a resumed video while it is still loading (it used to be reset to 0).
 - The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
 
+### ▶️ Player
+- Stop button, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`).
+- Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
+- Brightness is never written to the system nor remembered; the brightness button is gone and the swipe is an opt-in setting on the left edge only.
+
 ### 🔊 Correct audio language
 - A polish voice-over (*lektor*) or dub tagged `eng`/`und` in the container is detected from the track title (`Lektor PL`, `Dubbing`, `Polski`…) or the release name (`PL.LEKTOR`, `PLDUB`, `[Lektor PL]`), so the preferred-language track is picked and labelled correctly. Works for other languages' track titles too (Deutsch, VFF, Castellano…).
 
@@ -69,7 +74,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 ### Roadmap
 - Deeper anime support: AniList/MyAnimeList ids, absolute episode numbering (One Piece 1050), anime-first matching for anime folders.
 - Better poster/backdrop selection and image quality, nicer blur effects.
-- Further mobile UI modernization (browse and details screens), player UI refresh.
+- Further mobile UI modernization (browse and details screens), data source logos (TMDb / AniList / NFO) on details.
 
 ## Download
 

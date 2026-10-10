@@ -1,0 +1,216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:40:36 +0000
+Subject: [PATCH] Player: Stop button, swipe to seek, brightness never
+ remembered
+
+- Stop in the player bar (back used to be the only way out).
+- Horizontal swipe seeks, Kodi/MX style: the screen width is 90 s, the
+  target time is previewed while the finger moves and applied on release.
+- Brightness gestures only override this window for this video: the
+  system brightness is never touched and nothing is remembered, so an
+  accidental swipe does not stick to the next video.
+---
+ res/drawable/ic_menu_stop.xml                 | 11 +++++
+ res/values-pl/strings.xml                     |  1 +
+ res/values/strings.xml                        |  1 +
+ .../video/player/PlayerActivity.java          |  8 ++++
+ .../video/player/PlayerBrightnessManager.java | 18 ++------
+ .../video/player/PlayerController.java        | 46 ++++++++++++++++++-
+ 6 files changed, 71 insertions(+), 14 deletions(-)
+ create mode 100644 res/drawable/ic_menu_stop.xml
+
+diff --git a/res/drawable/ic_menu_stop.xml b/res/drawable/ic_menu_stop.xml
+new file mode 100644
+index 0000000..71f1355
+--- /dev/null
++++ b/res/drawable/ic_menu_stop.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: stop playback -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:pathData="M8,6 L16,6 C17.1,6 18,6.9 18,8 L18,16 C18,17.1 17.1,18 16,18 L8,18 C6.9,18 6,17.1 6,16 L6,8 C6,6.9 6.9,6 8,6 Z"
++        android:fillColor="#FFFFFF" />
++</vector>
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index b9fb5e8..b02ad47 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1006,4 +1006,5 @@
+     <string name="metadata_edit_reset_done">Twoje zmiany nie będą już nadpisywać danych ze scrapera</string>
+     <string name="metadata_edit_invalid">Popraw zaznaczone pola</string>
+     <string name="metadata_edit_unavailable">Najpierw zescrapuj ten film, aby edytować informacje</string>
++    <string name="player_stop">Zatrzymaj</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index afceebc..ab2e91c 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1101,4 +1101,5 @@
+     <string name="metadata_edit_reset_done">Your edits will no longer override scraped info</string>
+     <string name="metadata_edit_invalid">Check the highlighted fields</string>
+     <string name="metadata_edit_unavailable">Scrape this video first to edit its info</string>
++    <string name="player_stop">Stop</string>
+ </resources>
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index fee3c1e..ddc674e 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -239,6 +239,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+     // Menu items management
+     private static final int MENU_FILE_ACTIONS_GROUP = 10;
+     private static final int MENU_INFO_ID = 101;
++    private static final int MENU_STOP_ID = 100;
+     private static final int MENU_BOOKMARK_ID = 102;
+ 
+     private static final int MENU_GLOBAL_ACTIONS_GROUP = 20;
+@@ -2578,6 +2579,9 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+             //------------------------------------------------------------------
+             // Add first the items related to the current video
+             //------------------------------------------------------------------
++            // ReNova: an explicit Stop, like every player (back used to be the only way out)
++            menu.add(MENU_FILE_ACTIONS_GROUP, MENU_STOP_ID, Menu.NONE, R.string.player_stop)
++                    .setIcon(R.drawable.ic_menu_stop).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+             mInfoMenuItem = menu.add(MENU_FILE_ACTIONS_GROUP, MENU_INFO_ID, Menu.NONE, R.string.menu_info);
+             if (mInfoMenuItem != null) {
+                 mInfoMenuItem.setIcon(R.drawable.ic_menu_info).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+@@ -2704,6 +2708,10 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+     @Override
+     public boolean onOptionsItemSelected(MenuItem item) {
+         switch (item.getItemId()) {
++            case MENU_STOP_ID:
++                // same path as back: onStop saves the resume point and stops the service
++                finish();
++                return true;
+             case MENU_LOCK_ID:
+                 mPlayerController.lock();
+                 return true;
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerBrightnessManager.java b/src/main/java/com/archos/mediacenter/video/player/PlayerBrightnessManager.java
+index 6bf4f15..47784f2 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerBrightnessManager.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerBrightnessManager.java
+@@ -55,20 +55,14 @@ public class PlayerBrightnessManager implements DefaultLifecycleObserver {
+         WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
+         lp.screenBrightness = brightness==-1?WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE:(float)brightness / 255f;
+         activity.getWindow().setAttributes(lp);
+-        saveCurrentBrightness(activity, brightness);
++        // ReNova: player brightness is a window override for this viewing only, never the system
++        // brightness and never remembered (an accidental swipe must not stick to the next video)
+     }
+     
+-    private static void saveCurrentBrightness(Activity activity, int brightness) {
+-        //When the user selects a new brightness setting, save that to prefs for restore later.
+-        PreferenceManager.getDefaultSharedPreferences(activity.getApplicationContext()).edit().putInt("brightness_saved", brightness).apply();
+-    }
+-
+     public void restoreBrightness(Activity activity){
+-        //Get any saved brightness from the Prefs 
+-        mBrightness = PreferenceManager.getDefaultSharedPreferences(activity.getApplicationContext()).getInt("brightness_saved", -1);
+-        
+-        //Restore the old brightness setting.
+-        setBrightness(activity, mBrightness);
++        // every video starts with the system brightness (see setBrightness)
++        PreferenceManager.getDefaultSharedPreferences(activity.getApplicationContext()).edit().remove("brightness_saved").apply();
++        setBrightness(activity, -1);
+     }
+ 
+     public static float getBrightness(Window window) { // get screen brightness float value between 0 and 1
+@@ -94,7 +88,6 @@ public class PlayerBrightnessManager implements DefaultLifecycleObserver {
+                 layoutParams.screenBrightness = newBrightness;
+                 window.setAttributes(layoutParams);
+                 window.addFlags(WindowManager.LayoutParams.FLAGS_CHANGED);
+-                saveCurrentBrightness((Activity) window.getContext(),(int) (newBrightness * 255f));
+                 mBrightness = level;
+             } else {
+                 if (log.isDebugEnabled()) log.debug("setLinearBrightness: not applying change, because increasing newBrightness={} < curBrightness={}", newBrightness, curBrightness);
+@@ -104,7 +97,6 @@ public class PlayerBrightnessManager implements DefaultLifecycleObserver {
+                 layoutParams.screenBrightness = newBrightness;
+                 window.setAttributes(layoutParams);
+                 window.addFlags(WindowManager.LayoutParams.FLAGS_CHANGED);
+-                saveCurrentBrightness((Activity) window.getContext(),(int) (newBrightness * 255f));
+                 mBrightness = level;
+             } else {
+                 if (log.isDebugEnabled()) log.debug("setLinearBrightness: not applying change, because decreasing newBrightness={} > curBrightness={}", newBrightness, curBrightness);
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+index 12a61fd..ba6fe8f 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+@@ -195,6 +195,11 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+     private final float         BORDER_WIDTH = MiscUtils.dp2Px(24);
+     private final float         SCROLL_THRESHOLD = MiscUtils.dp2Px(16);
+     private final float         SCROLL_ANGLE = 30;
++    // ReNova: horizontal swipe seeks, Kodi/MX style: the full screen width is 90 seconds
++    private static final int    SWIPE_SEEK_FULL_WIDTH_MS = 90_000;
++    private boolean             mSwipeSeeking = false;
++    private int                 mSwipeSeekStartMs = 0;
++    private int                 mSwipeSeekTargetMs = 0;
+     private SeekBar             mProgress;
+     private SeekBar             mProgress2;
+     private TextView            mEndTime, mCurrentTime;
+@@ -1892,7 +1897,19 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+     @SuppressLint("ClickableViewAccessibility")
+     public boolean onTouch(View v, MotionEvent event) {
+         if (event == null) return false;
+-        return gestureDetector.onTouchEvent(event);
++        boolean handled = gestureDetector.onTouchEvent(event);
++        int action = event.getActionMasked();
++        if (mSwipeSeeking && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
++            mSwipeSeeking = false;
++            if (action == MotionEvent.ACTION_UP && Player.sPlayer.isInPlaybackState()) {
++                if (log.isDebugEnabled()) log.debug("onTouch: swipe seek to {}", mSwipeSeekTargetMs);
++                Player.sPlayer.seekTo(mSwipeSeekTargetMs);
++            }
++            hideOsdHandler.removeCallbacks(hideOsdRunnable);
++            hideOsdHandler.postDelayed(hideOsdRunnable, 600);
++            return true;
++        }
++        return handled;
+     }
+ 
+     @Override
+@@ -2054,6 +2071,22 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+         boolean isVerticalScroll = (angleDegrees >= 90-SCROLL_ANGLE && angleDegrees <= 90+SCROLL_ANGLE) || (angleDegrees >= 270-SCROLL_ANGLE && angleDegrees <= 270+SCROLL_ANGLE);
+         //boolean isVerticalScroll = (Math.abs(distanceY) > Math.abs(distanceX));
+ 
++        // horizontal swipe: seek preview while the finger moves, applied when it is lifted
++        float totalDx = e2.getX() - e1.getX();
++        if (!mSwipeSeeking && !isVerticalScroll && Math.abs(totalDx) > SCROLL_THRESHOLD * 2
++                && Math.abs(totalDx) > Math.abs(e2.getY() - e1.getY()) * 2
++                && Player.sPlayer.isInPlaybackState() && Player.sPlayer.getDuration() > 0) {
++            mSwipeSeeking = true;
++            mSwipeSeekStartMs = Player.sPlayer.getCurrentPosition();
++        }
++        if (mSwipeSeeking) {
++            int duration = Player.sPlayer.getDuration();
++            int delta = (int) (totalDx / screenWidth * SWIPE_SEEK_FULL_WIDTH_MS);
++            mSwipeSeekTargetMs = Math.max(0, Math.min(mSwipeSeekStartMs + delta, Math.max(0, duration - 1000)));
++            showSwipeSeekOsd(mSwipeSeekTargetMs - mSwipeSeekStartMs, mSwipeSeekTargetMs);
++            return true;
++        }
++
+         if (Math.abs(scrollGestureVertical) > SCROLL_THRESHOLD && isVerticalScroll) {
+             if (e1.getX() < halfWidth) { // left screen part
+                 if (log.isDebugEnabled()) log.debug("onScroll: left screen part, direction={}", (scrollGestureVertical > 0 ? "up" : "down"));
+@@ -2222,6 +2255,17 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+         hideOsdHandler.postDelayed(hideOsdRunnable, 300);
+     }
+ 
++    private void showSwipeSeekOsd(int deltaMs, int targetMs) {
++        if (mOsdRightTextView == null) return;
++        String sign = deltaMs < 0 ? "-" : "+";
++        String text = sign + MediaUtils.formatTime(Math.abs(deltaMs) < 1000 ? 1000 : Math.abs(deltaMs))
++                + "   " + MediaUtils.formatTime(Math.max(1000, targetMs));
++        mOsdRightTextView.setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
++        mOsdRightTextView.setText(text);
++        mOsdRightTextView.setVisibility(View.VISIBLE);
++        hideOsdHandler.removeCallbacks(hideOsdRunnable);
++    }
++
+     public void showAudioSpeedOSD(float audioSpeed) {
+         String speedText = String.format(Locale.getDefault(), "%.2fx", audioSpeed);
+         if (mOsdRightTextView != null) {

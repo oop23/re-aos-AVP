@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:37:57 +0000
+Subject: [PATCH] Player bar fades from the video instead of a grey slab
+
+---
+ res/drawable/player_bar_2014.xml | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/res/drawable/player_bar_2014.xml b/res/drawable/player_bar_2014.xml
+index 34d75ee..06e8609 100644
+--- a/res/drawable/player_bar_2014.xml
++++ b/res/drawable/player_bar_2014.xml
+@@ -1,7 +1,12 @@
+ <?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: the controls sit on a fade from the video into the dark theme, not on a grey slab -->
+ <shape xmlns:android="http://schemas.android.com/apk/res/android"
+     android:shape="rectangle" >
+ 
+-    <solid android:color="#68000000" />
++    <gradient
++        android:angle="90"
++        android:startColor="#E607061A"
++        android:centerColor="#9907061A"
++        android:endColor="#0007061A" />
+ 
+-</shape>
+\ No newline at end of file
++</shape>

@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:41:46 +0000
+Subject: [PATCH] Player: no brightness button, brightness swipe opt-in,
+ readable OSD
+
+- The brightness button leaves the player bar.
+- Brightness swipe is off by default; when enabled in settings it only
+  works on a narrow left edge, so it never fights with seeking.
+- Times and OSD texts get a soft shadow, OSD bubbles a darker rounded
+  background, readable over bright scenes.
+---
+ res/drawable/rounded_rectangle.xml            |  6 ++++--
+ res/values-pl/strings.xml                     |  2 ++
+ res/values/strings.xml                        |  2 ++
+ res/xml/preferences_video.xml                 |  7 +++++++
+ .../video/player/PlayerActivity.java          |  5 +----
+ .../video/player/PlayerController.java        | 20 +++++++++++++++++--
+ 6 files changed, 34 insertions(+), 8 deletions(-)
+
+diff --git a/res/drawable/rounded_rectangle.xml b/res/drawable/rounded_rectangle.xml
+index e19ceac..65e0cab 100644
+--- a/res/drawable/rounded_rectangle.xml
++++ b/res/drawable/rounded_rectangle.xml
+@@ -1,4 +1,6 @@
++<!-- ReNova: OSD bubbles (volume, seek preview...) readable over any picture -->
+ <shape xmlns:android="http://schemas.android.com/apk/res/android">
+-    <solid android:color="#40000000"/>
+-    <corners android:radius="12dp"/>
++    <solid android:color="#B307061A"/>
++    <stroke android:width="1dp" android:color="#33FFFFFF"/>
++    <corners android:radius="16dp"/>
+ </shape>
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index b02ad47..7b05dee 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1007,4 +1007,6 @@
+     <string name="metadata_edit_invalid">Popraw zaznaczone pola</string>
+     <string name="metadata_edit_unavailable">Najpierw zescrapuj ten film, aby edytować informacje</string>
+     <string name="player_stop">Zatrzymaj</string>
++    <string name="preferences_brightness_gesture">Gest jasności</string>
++    <string name="preferences_brightness_gesture_summary">Przesuwanie w górę/dół przy lewej krawędzi playera zmienia jasność tylko dla bieżącego filmu</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index ab2e91c..fdee84f 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1102,4 +1102,6 @@
+     <string name="metadata_edit_invalid">Check the highlighted fields</string>
+     <string name="metadata_edit_unavailable">Scrape this video first to edit its info</string>
+     <string name="player_stop">Stop</string>
++    <string name="preferences_brightness_gesture">Brightness swipe</string>
++    <string name="preferences_brightness_gesture_summary">Swipe up/down on the left edge of the player to change brightness for the current video only</string>
+ </resources>
+diff --git a/res/xml/preferences_video.xml b/res/xml/preferences_video.xml
+index 756774e..66c4607 100644
+--- a/res/xml/preferences_video.xml
++++ b/res/xml/preferences_video.xml
+@@ -25,6 +25,13 @@
+         android:key="preferences_category_video"
+         android:title="@string/preferences_category_video"
+         app:iconSpaceReserved="false">
++        <CheckBoxPreference
++            android:defaultValue="false"
++            android:key="player_brightness_gesture"
++            android:persistent="true"
++            android:summary="@string/preferences_brightness_gesture_summary"
++            android:title="@string/preferences_brightness_gesture"
++            app:iconSpaceReserved="false"/>
+         <CheckBoxPreference
+             android:defaultValue="false"
+             android:key="force_software_decoding"
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index ddc674e..cf91ddd 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -2600,10 +2600,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+             menu.add(MENU_GLOBAL_ACTIONS_GROUP, MENU_LOCK_ID, Menu.NONE, R.string.menu_lock_player);
+             if (!isPluggedOnTv()) {
+ 
+-                mBrightnessMenuItem = menu.add(MENU_GLOBAL_ACTIONS_GROUP, MENU_BRIGHTNESS_ID, Menu.NONE, R.string.menu_brightness_settings);
+-                if (mBrightnessMenuItem != null) {
+-                    mBrightnessMenuItem.setIcon(R.drawable.ic_menu_brightness).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+-                }
++                // ReNova: no brightness button in the player bar, the narrow left edge swipe is enough
+                 if (mPlayer!=null&&mPlayer.getEffectType()==VideoEffect.EFFECT_NONE) {
+                     menuItem = menu.add(MENU_GLOBAL_ACTIONS_GROUP, MENU_LOCK_ROTATION_ID,
+                             Menu.NONE,R.string.rotation_unlock);
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+index ba6fe8f..a91469b 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+@@ -197,6 +197,9 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+     private final float         SCROLL_ANGLE = 30;
+     // ReNova: horizontal swipe seeks, Kodi/MX style: the full screen width is 90 seconds
+     private static final int    SWIPE_SEEK_FULL_WIDTH_MS = 90_000;
++    // brightness swipe only on the left edge, so it does not fight with seeking and taps
++    private static final float  BRIGHTNESS_EDGE_RATIO = 0.18f;
++    public static final String  KEY_BRIGHTNESS_GESTURE = "player_brightness_gesture";
+     private boolean             mSwipeSeeking = false;
+     private int                 mSwipeSeekStartMs = 0;
+     private int                 mSwipeSeekTargetMs = 0;
+@@ -676,6 +679,10 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+             mControllerViewLeft.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+             mOsdLeftTextView = mControllerViewLeft.findViewById(R.id.osd_left);
+             mOsdRightTextView = mControllerViewLeft.findViewById(R.id.osd_right);
++            applyReadableShadow(mOsdLeftTextView);
++            applyReadableShadow(mOsdRightTextView);
++            applyReadableShadow(mControllerViewLeft.findViewById(R.id.time));
++            applyReadableShadow(mControllerViewLeft.findViewById(R.id.time_current));
+             mControllerViewLeft.setOnKeyListener(new View.OnKeyListener() {
+                 @Override
+                 public boolean onKey(View v, int keyCode, KeyEvent event) {
+@@ -2088,10 +2095,12 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+         }
+ 
+         if (Math.abs(scrollGestureVertical) > SCROLL_THRESHOLD && isVerticalScroll) {
+-            if (e1.getX() < halfWidth) { // left screen part
++            if (e1.getX() < screenWidth * BRIGHTNESS_EDGE_RATIO
++                    && PreferenceManager.getDefaultSharedPreferences(mContext).getBoolean(KEY_BRIGHTNESS_GESTURE, false)) {
++                // ReNova: opt-in (settings), narrow left edge only
+                 if (log.isDebugEnabled()) log.debug("onScroll: left screen part, direction={}", (scrollGestureVertical > 0 ? "up" : "down"));
+                 scrollIncrementalBrightnessUpdate(scrollGestureVertical > 0);
+-            } else { // right screen part
++            } else if (e1.getX() > halfWidth) { // right screen part
+                 if (log.isDebugEnabled()) log.debug("onScroll: left screen part, direction={}", (scrollGestureVertical > 0 ? "up" : "down"));
+                 scrollIncrementalVolumeUpdate(scrollGestureVertical > 0);
+             }
+@@ -2255,6 +2264,13 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+         hideOsdHandler.postDelayed(hideOsdRunnable, 300);
+     }
+ 
++    /** soft dark shadow so white texts stay readable on bright scenes */
++    private static void applyReadableShadow(View view) {
++        if (view instanceof TextView) {
++            ((TextView) view).setShadowLayer(6f, 0f, 1.5f, 0xCC000000);
++        }
++    }
++
+     private void showSwipeSeekOsd(int deltaMs, int targetMs) {
+         if (mOsdRightTextView == null) return;
+         String sign = deltaMs < 0 ? "-" : "+";

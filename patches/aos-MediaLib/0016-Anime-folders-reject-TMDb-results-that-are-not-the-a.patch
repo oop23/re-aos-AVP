@@ -1,0 +1,220 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:39:15 +0000
+Subject: [PATCH] Anime folders: reject TMDb results that are not the anime
+ AniList identified
+
+TMDb returned confident nonsense for anime it does not know well
+(KonoSuba matched to a DreamWorks title). In anime folders AniList now
+says what the show is: TMDb TV results must be animation and match one
+of its english / romaji / native titles (the japanese original name is
+the strongest signal), otherwise they are rejected and TMDb is searched
+again under the AniList titles. No match is better than a wrong one.
+---
+ .../themoviedb3/AnimeTitleMatch.java          | 74 +++++++++++++++++++
+ .../mediascraper/themoviedb3/SearchShow.java  | 19 ++++-
+ .../themoviedb3/SearchShowParser.java         | 13 ++++
+ .../themoviedb3/AnimeTitleMatchTest.java      | 52 +++++++++++++
+ 4 files changed, 157 insertions(+), 1 deletion(-)
+ create mode 100644 src/com/archos/mediascraper/themoviedb3/AnimeTitleMatch.java
+ create mode 100644 test/java/com/archos/mediascraper/themoviedb3/AnimeTitleMatchTest.java
+
+diff --git a/src/com/archos/mediascraper/themoviedb3/AnimeTitleMatch.java b/src/com/archos/mediascraper/themoviedb3/AnimeTitleMatch.java
+new file mode 100644
+index 0000000..ee350bd
+--- /dev/null
++++ b/src/com/archos/mediascraper/themoviedb3/AnimeTitleMatch.java
+@@ -0,0 +1,74 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import java.text.Normalizer;
++import java.util.List;
++import java.util.Locale;
++
++/**
++ * Does a TMDb result really describe the anime AniList identified? Used to reject the "lies"
++ * TMDb returns for anime it does not know well (KonoSuba matched to a DreamWorks title...).
++ * The native (japanese) title is the strongest signal: TMDb keeps it as original name.
++ *
++ * Pure Java so it is unit testable on the JVM.
++ */
++final class AnimeTitleMatch {
++
++    private AnimeTitleMatch() {}
++
++    static boolean matches(String tmdbName, String tmdbOriginalName, List<String> aniListTitles) {
++        if (aniListTitles == null || aniListTitles.isEmpty()) return true; // nothing to check against
++        for (String title : aniListTitles) {
++            if (similar(tmdbOriginalName, title) || similar(tmdbName, title)) return true;
++        }
++        return false;
++    }
++
++    static boolean similar(String a, String b) {
++        String x = normalize(a);
++        String y = normalize(b);
++        if (x.isEmpty() || y.isEmpty()) return false;
++        if (x.equals(y)) return true;
++        // "konosuba gods blessing on this wonderful world" vs "konosuba"
++        int min = Math.min(x.length(), y.length());
++        if (min >= 6 && (x.startsWith(y) || y.startsWith(x))) return true;
++        int distance = levenshtein(x, y);
++        return distance <= Math.max(1, Math.max(x.length(), y.length()) / 5);
++    }
++
++    static String normalize(String s) {
++        if (s == null) return "";
++        String t = Normalizer.normalize(s, Normalizer.Form.NFKD).replaceAll("\\p{M}", "");
++        t = t.toLowerCase(Locale.ROOT);
++        // keep letters and digits of any script, drop punctuation, separators and season suffixes
++        t = t.replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
++        t = t.replaceAll("\\b(?:season|the|a|an)\\b", " ").replaceAll("\\s+", "");
++        return t;
++    }
++
++    private static int levenshtein(String a, String b) {
++        int[] prev = new int[b.length() + 1];
++        int[] cur = new int[b.length() + 1];
++        for (int j = 0; j <= b.length(); j++) prev[j] = j;
++        for (int i = 1; i <= a.length(); i++) {
++            cur[0] = i;
++            for (int j = 1; j <= b.length(); j++) {
++                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
++                cur[j] = Math.min(Math.min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
++            }
++            int[] tmp = prev; prev = cur; cur = tmp;
++        }
++        return prev[b.length()];
++    }
++}
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShow.java b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+index dfbe7a6..0bed1ea 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShow.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+@@ -177,7 +177,24 @@ public class SearchShow {
+                     myResult.result = SearchShowParser.getResult(
+                             (isResponseOk) ? response : null,
+                             searchInfo, year, language, resultLimit, showScraper);
+-                    myResult.status = ScrapeStatus.OKAY;
++                    if ((myResult.result == null || myResult.result.isEmpty())
++                            && SearchShowParser.isAnimePath(searchInfo.getFile())) {
++                        // every result was rejected as not being the anime: search TMDb again under
++                        // the titles AniList knows it by (english, romaji, native)
++                        for (String alternateTitle : AniListClient.alternateTitles(searchQueryString)) {
++                            if (alternateTitle.equalsIgnoreCase(searchQueryString)) continue;
++                            for (String lang : language.equals("en") ? new String[] { "en" } : new String[] { language, "en" }) {
++                                Response<TvShowResultsPage> retry = tmdb.searchService().tv(alternateTitle, 1, lang, null, false).execute();
++                                if (!retry.isSuccessful() || retry.body() == null || retry.body().total_results == 0) continue;
++                                if (log.isDebugEnabled()) log.debug("search: anime retry with AniList title {} in {}", alternateTitle, lang);
++                                myResult.result = SearchShowParser.getResult(retry, searchInfo, year, lang, resultLimit, showScraper);
++                                if (myResult.result != null && !myResult.result.isEmpty()) break;
++                            }
++                            if (myResult.result != null && !myResult.result.isEmpty()) break;
++                        }
++                    }
++                    myResult.status = (myResult.result == null || myResult.result.isEmpty())
++                            ? ScrapeStatus.NOT_FOUND : ScrapeStatus.OKAY;
+                 }
+             }
+         } catch (Exception e) {
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+index 3277d3e..746fbf8 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+@@ -75,6 +75,11 @@ public class SearchShowParser {
+ 
+         boolean isAirDateKnown = false;
+         boolean animePath = isAnimePath(searchInfo.getFile());
++        // anime folder: AniList tells what the show really is, TMDb results that do not match it
++        // (other title, not animation) are rejected instead of being trusted
++        List<String> aniListTitles = animePath
++                ? com.archos.mediascraper.anilist.AniListClient.alternateTitles(searchInfo.getShowName())
++                : java.util.Collections.<String>emptyList();
+         for (BaseTvShow series : resultsTvShow) {
+             if (log.isDebugEnabled()) log.debug("airdate {} airtime {}", series.name, ((series.first_air_date != null) ? series.first_air_date.toString() : null));
+             if (series.id != SERIES_NOT_PERMITTED_ID) {
+@@ -84,6 +89,14 @@ public class SearchShowParser {
+                 } else {
+                     if (log.isDebugEnabled()) log.debug("getSearchShowParserResult: {} contains countryOfOrigin{}", series.original_name, countryOfOrigin);
+                 }
++                if (!aniListTitles.isEmpty()) {
++                    boolean animated = series.genre_ids != null && series.genre_ids.contains(ANIMATION_GENRE_ID);
++                    if (!animated || !AnimeTitleMatch.matches(series.name, series.original_name, aniListTitles)) {
++                        if (log.isDebugEnabled()) log.debug("getSearchShowParserResult: reject {} / {}, not the anime AniList identified {}",
++                                series.name, series.original_name, aniListTitles);
++                        continue;
++                    }
++                }
+                 Bundle extra = new Bundle();
+                 extra.putString(ShowUtils.EPNUM, String.valueOf(searchInfo.getEpisode()));
+                 extra.putString(ShowUtils.SEASON, String.valueOf(searchInfo.getSeason()));
+diff --git a/test/java/com/archos/mediascraper/themoviedb3/AnimeTitleMatchTest.java b/test/java/com/archos/mediascraper/themoviedb3/AnimeTitleMatchTest.java
+new file mode 100644
+index 0000000..649f75d
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/themoviedb3/AnimeTitleMatchTest.java
+@@ -0,0 +1,52 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.List;
++
++public class AnimeTitleMatchTest {
++
++    private static final List<String> KONOSUBA = Arrays.asList(
++            "KONOSUBA -God's blessing on this wonderful world!",
++            "Kono Subarashii Sekai ni Shukufuku wo!", "この素晴らしい世界に祝福を!");
++    private static final List<String> FRIEREN = Arrays.asList(
++            "Frieren: Beyond Journey's End", "Sousou no Frieren", "葬送のフリーレン");
++
++    @Test
++    public void realMatchesAreKept() {
++        assertTrue(AnimeTitleMatch.matches("KonoSuba – God’s blessing on this wonderful world!!", "この素晴らしい世界に祝福を！", KONOSUBA));
++        assertTrue(AnimeTitleMatch.matches("Frieren: Beyond Journey's End", "葬送のフリーレン", FRIEREN));
++        assertTrue(AnimeTitleMatch.matches("Frieren", "葬送のフリーレン", FRIEREN));
++        assertTrue(AnimeTitleMatch.matches("Attack on Titan", "進撃の巨人",
++                Arrays.asList("Attack on Titan", "Shingeki no Kyojin", "進撃の巨人")));
++    }
++
++    @Test
++    public void liesAreRejected() {
++        assertFalse(AnimeTitleMatch.matches("Kung Fu Panda: The Paws of Destiny", "Kung Fu Panda: The Paws of Destiny", KONOSUBA));
++        assertFalse(AnimeTitleMatch.matches("Frasier", "Frasier", FRIEREN));
++        assertFalse(AnimeTitleMatch.matches("Titans", "Titans",
++                Arrays.asList("Attack on Titan", "Shingeki no Kyojin", "進撃の巨人")));
++    }
++
++    @Test
++    public void noAniListDataAcceptsEverything() {
++        assertTrue(AnimeTitleMatch.matches("Anything", "Anything", null));
++    }
++}
