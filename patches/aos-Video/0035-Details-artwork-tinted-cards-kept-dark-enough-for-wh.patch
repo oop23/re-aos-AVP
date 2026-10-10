@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:23:19 +0000
+Subject: [PATCH] Details: artwork-tinted cards kept dark enough for white text
+
+---
+ .../video/info/VideoInfoActivityFragment.java       |  1 +
+ .../video/info/VideoInfoCommonClass.java            | 13 +++++++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index f0603ea..2d0bd68 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -866,6 +866,7 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+     }
+ 
+     private void setBackground() {
++        mColor = VideoInfoCommonClass.getReadableCardColor(mColor);
+         mButtonsContainer.setCardBackgroundColor(mColor);
+         mFileInfoContainer.setCardBackgroundColor(mColor);
+         mSubtitleContainer.setCardBackgroundColor(mColor);
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoCommonClass.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoCommonClass.java
+index 865e981..72a2577 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoCommonClass.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoCommonClass.java
+@@ -70,6 +70,19 @@ public class VideoInfoCommonClass {
+         return color;
+     }
+ 
++    /**
++     * ReNova: the artwork's dominant color made bright cards with white text on them (a yellow
++     * poster gave yellow cards). Keep its hue but cap brightness and saturation so text stays
++     * readable on every card.
++     */
++    public static int getReadableCardColor(int color) {
++        float[] hsv = new float[3];
++        Color.colorToHSV(color, hsv);
++        hsv[1] = Math.min(hsv[1], 0.65f);
++        hsv[2] = Math.min(hsv[2], 0.30f);
++        return Color.HSVToColor(Color.alpha(color), hsv);
++    }
++
+     public static int getClearerColor(int color) {
+         float[] hsv = new float[3];
+         Color.colorToHSV(color, hsv);

@@ -19,8 +19,16 @@ no `.nfo`, no `.jpg`, no hidden resume files. Existing `.nfo` files on your shar
 - Anime: put episodes in a folder named after the show (`Frieren/05.mkv`,
   `Frieren/Sezon 2/Odcinek 05.mp4`). Folders called `Anime` help: ReNova then prefers animated
   results and checks titles with AniList.
-- Release names like `[SubsPlease] Sousou no Frieren - 05 (1080p).mkv` and `Frieren odc. 5.mp4`
-  are understood.
+- Release names like `[SubsPlease] Sousou no Frieren - 05 (1080p).mkv`, `Frieren odc. 5.mp4`,
+  `GTO 01.mkv` and absolute numbers like `One Piece - 1050.mp4` are understood.
+- In an `Anime` folder ReNova never picks a live action movie (GTO episodes used to become the
+  1999 live action movie).
+- `.nfo` files next to your videos are read (Kodi format) and win over online search.
+
+## My NAS shows up twice (by IP and by name)
+ReNova merges them in the network list and refuses to index the same share a second time under
+its other name. If your library already has it twice, ReNova tells you once at start which
+folders to remove from the indexed folders.
 
 ## My NAS was asleep and the library vanished?
 ReNova keeps the library when a rescan suddenly finds most of a source missing. The entries
@@ -35,7 +43,8 @@ ReNova reads the track title (`Lektor PL`, `Dubbing`, `Polski`…) and the relea
 - Horizontal swipe: seek, with the target time shown.
 - Brightness swipe (left edge) is off by default: *Settings → Player → Brightness swipe*.
   It only affects the current video and never changes the system brightness.
-- Stop: in the player menu.
+- Stop: the square button in the control bar.
+- Edit info: player menu → *Edit info* fixes a wrong title or episode without leaving the video.
 - Cinema mode (glow in the colors of the video around the picture, like YouTube's ambient mode):
   *Settings → Player → Cinema mode*.
 
@@ -70,8 +79,16 @@ Tylko na urządzeniu, w prywatnej pamięci ReNova. Nic nie trafia obok filmów: 
 - Anime: trzymaj odcinki w folderze z nazwą serii (`Frieren/05.mkv`,
   `Frieren/Sezon 2/Odcinek 05.mp4`). Folder `Anime` pomaga: ReNova wtedy woli animacje
   i sprawdza tytuły w AniList.
-- Nazwy w stylu `[SubsPlease] Sousou no Frieren - 05 (1080p).mkv` i `Frieren odc. 5.mp4`
-  są rozumiane.
+- Nazwy w stylu `[SubsPlease] Sousou no Frieren - 05 (1080p).mkv`, `Frieren odc. 5.mp4`,
+  `GTO 01.mkv` i numeracja absolutna jak `One Piece - 1050.mp4` są rozumiane.
+- W folderze `Anime` ReNova nigdy nie wybierze filmu aktorskiego (odcinki GTO trafiały
+  do filmu z 1999 r.).
+- Pliki `.nfo` obok filmów są czytane (format Kodi) i mają pierwszeństwo przed wyszukiwaniem online.
+
+## Mój NAS widać dwa razy (po IP i po nazwie)
+ReNova scala je na liście sieci i nie pozwala zaindeksować tego samego udziału drugi raz pod
+inną nazwą. Jeśli biblioteka już ma go podwójnie, przy starcie ReNova raz podpowie, który folder
+usunąć z folderów indeksowanych.
 
 ## NAS spał i biblioteka zniknęła?
 ReNova nie kasuje biblioteki, gdy skan nagle nie widzi większości źródła. Wpisy znikają dopiero,
@@ -86,7 +103,8 @@ ReNova czyta nazwę ścieżki (`Lektor PL`, `Dubbing`, `Polski`…) i nazwę wyd
 - Przesunięcie poziome: przewijanie z podglądem czasu docelowego.
 - Jasność (lewa krawędź) jest domyślnie wyłączona: *Ustawienia → Odtwarzacz → Gest jasności*.
   Działa tylko dla bieżącego filmu i nigdy nie zmienia jasności systemu.
-- Stop: w menu odtwarzacza.
+- Stop: kwadratowy przycisk w pasku sterowania.
+- Edycja informacji: menu odtwarzacza → *Edytuj informacje* poprawia tytuł lub odcinek bez wychodzenia z filmu.
 - Tryb kinowy (poświata w kolorach filmu wokół obrazu, jak w YouTube):
   *Ustawienia → Odtwarzacz → Tryb kinowy*.
 
