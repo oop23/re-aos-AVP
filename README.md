@@ -56,6 +56,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
 
 ### ▶️ Player
+- Kodi-like **buffering progress** ("Buffering 45%") when playback waits for data.
 - Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
 - Stop button, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.

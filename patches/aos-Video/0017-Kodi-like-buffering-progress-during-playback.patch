@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:47:09 +0000
+Subject: [PATCH] Kodi-like buffering progress during playback
+
+The engine reports buffer fill but the app only showed it while opening
+a file. When playback waits for data (typically after seeking a network
+file) a 'Buffering 45%' bubble now shows instead of a frozen picture.
+---
+ res/values-pl/strings.xml                              |  1 +
+ res/values/strings.xml                                 |  1 +
+ .../mediacenter/video/player/PlayerActivity.java       |  4 ++++
+ .../mediacenter/video/player/PlayerController.java     | 10 ++++++++++
+ 4 files changed, 16 insertions(+)
+
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index 7b05dee..b6ebfa4 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1009,4 +1009,5 @@
+     <string name="player_stop">Zatrzymaj</string>
+     <string name="preferences_brightness_gesture">Gest jasności</string>
+     <string name="preferences_brightness_gesture_summary">Przesuwanie w górę/dół przy lewej krawędzi playera zmienia jasność tylko dla bieżącego filmu</string>
++    <string name="player_buffering_percent">Buforowanie %1$d%%</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index fdee84f..4a5b69d 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1104,4 +1104,5 @@
+     <string name="player_stop">Stop</string>
+     <string name="preferences_brightness_gesture">Brightness swipe</string>
+     <string name="preferences_brightness_gesture_summary">Swipe up/down on the left edge of the player to change brightness for the current video only</string>
++    <string name="player_buffering_percent">Buffering %1$d%%</string>
+ </resources>
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index cf91ddd..e70b56b 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -4525,6 +4525,10 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+         public void onBufferingUpdate(int percent) {
+             if (!mPlayer.isInPlaybackState()) {
+                 mBufferView.setText(" "+percent+"%");
++            } else if (mPlayerController != null && mPlayer.isBusy() && percent < 100) {
++                // ReNova: Kodi-like buffering feedback while playback waits for data (e.g. after
++                // seeking a network file) instead of a frozen picture
++                mPlayerController.showBufferingOsd(percent);
+             }
+         }
+ 
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+index fd36dc9..f67da34 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+@@ -2311,6 +2311,16 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+         mHandler.postDelayed(mApplyTapSeek, TAP_SEEK_DEBOUNCE_MS);
+     }
+ 
++    /** Buffering progress while playback waits for data, hidden shortly after the last update. */
++    public void showBufferingOsd(int percent) {
++        if (mOsdRightTextView == null) return;
++        mOsdRightTextView.setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
++        mOsdRightTextView.setText(mContext.getString(R.string.player_buffering_percent, Math.max(0, Math.min(percent, 99))));
++        mOsdRightTextView.setVisibility(View.VISIBLE);
++        hideOsdHandler.removeCallbacks(hideOsdRunnable);
++        hideOsdHandler.postDelayed(hideOsdRunnable, 1000);
++    }
++
+     /** soft dark shadow so white texts stay readable on bright scenes */
+     private static void applyReadableShadow(View view) {
+         if (view instanceof TextView) {
