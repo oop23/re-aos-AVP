@@ -156,6 +156,11 @@ jobs:
           adb shell settings put system user_rotation 0
           sleep 3
           adb shell input keyevent KEYCODE_BACK
+          sleep 2
+          adb shell am start -n io.github.oop23.renova/com.archos.mediacenter.video.info.VideoInfoActivity -d file:///sdcard/Movies/test-video.mp4 || true
+          sleep 10
+          ./shot.sh 08-details
+          adb shell input keyevent KEYCODE_BACK
           adb shell input keyevent KEYCODE_BACK
           sleep 3
           ./shot.sh 06-after-player
