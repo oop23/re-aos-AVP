@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:40:13 +0000
+Subject: [PATCH] Player: 'ends 22:41' instead of an arrow and a clock emoji
+
+---
+ res/values-pl/strings.xml                                       | 1 +
+ res/values/strings.xml                                          | 1 +
+ .../com/archos/mediacenter/video/player/PlayerController.java   | 2 +-
+ 3 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index 6af632f..520fe81 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1019,4 +1019,5 @@
+     <string name="data_source_edited">✎ Twoje zmiany</string>
+     <string name="indexed_twice_title">Ten sam udział dwa razy w bibliotece</string>
+     <string name="indexed_twice_message">Te foldery biblioteki to ten sam udział (raz po nazwie serwera, raz po IP), więc filmy są indeksowane i scrapowane dwa razy. Usuń jeden z każdej pary z folderów indeksowanych:</string>
++    <string name="player_ends_at">koniec %1$s</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 4e7fd3f..413476e 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1114,4 +1114,5 @@
+     <string name="data_source_edited">✎ Your edits</string>
+     <string name="indexed_twice_title">Same share in the library twice</string>
+     <string name="indexed_twice_message">These library folders are the same share reached by server name and by IP, so their videos are indexed and scraped twice. Remove one of each pair from the indexed folders:</string>
++    <string name="player_ends_at">ends %1$s</string>
+ </resources>
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+index 260aee1..9828538 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerController.java
+@@ -1331,7 +1331,7 @@ public class PlayerController implements View.OnTouchListener, OnGenericMotionLi
+                     if (speed <= 0f) speed = 1.0f;
+                     long remainingMs = (long) (remaining / speed);
+                     String endClockText = getDateFormat().format(new Date(now + remainingMs));
+-                    endText = remainingText + " → 🕖 " + endClockText;
++                    endText = remainingText + "  ·  " + mContext.getString(R.string.player_ends_at, endClockText);
+                 } else {
+                     endText = remainingText;
+                 }
