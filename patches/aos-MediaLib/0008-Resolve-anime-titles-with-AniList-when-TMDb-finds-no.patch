@@ -11,19 +11,19 @@ gives the english, romaji and native titles of the best anime match and
 the TMDb search is retried with them. Results are cached; AniList
 failures just skip the fallback.
 ---
- .../mediascraper/anilist/AniListClient.java   | 149 ++++++++++++++++++
+ .../mediascraper/anilist/AniListClient.java   | 155 ++++++++++++++++++
  .../mediascraper/themoviedb3/SearchShow.java  |  16 ++
  .../anilist/AniListClientTest.java            |  52 ++++++
- 3 files changed, 217 insertions(+)
+ 3 files changed, 223 insertions(+)
  create mode 100644 src/com/archos/mediascraper/anilist/AniListClient.java
  create mode 100644 test/java/com/archos/mediascraper/anilist/AniListClientTest.java
 
 diff --git a/src/com/archos/mediascraper/anilist/AniListClient.java b/src/com/archos/mediascraper/anilist/AniListClient.java
 new file mode 100644
-index 0000000..3d6699b
+index 0000000..bf30eb4
 --- /dev/null
 +++ b/src/com/archos/mediascraper/anilist/AniListClient.java
-@@ -0,0 +1,149 @@
+@@ -0,0 +1,155 @@
 +// Licensed under the Apache License, Version 2.0 (the "License");
 +// you may not use this file except in compliance with the License.
 +// You may obtain a copy of the License at
@@ -168,9 +168,15 @@ index 0000000..3d6699b
 +        if (s == null) return false;
 +        for (int i = 0; i < s.length(); i++) {
 +            char c = s.charAt(i);
-+            if (Character.isLetter(c) && Character.UnicodeScript.of(c) != Character.UnicodeScript.LATIN) return false;
++            if (Character.isLetter(c) && !isLatinLetter(c)) return false;
 +        }
 +        return true;
++    }
++
++    // Character.UnicodeScript needs API 24, minSdk is 23
++    static boolean isLatinLetter(int cp) {
++        return cp < 0x250 || (cp >= 0x1E00 && cp <= 0x1EFF) || (cp >= 0x2C60 && cp <= 0x2C7F)
++                || (cp >= 0xA720 && cp <= 0xA7FF) || (cp >= 0xFF21 && cp <= 0xFF5A);
 +    }
 +}
 diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShow.java b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
@@ -209,7 +215,7 @@ index 7205777..dfbe7a6 100644
  
 diff --git a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
 new file mode 100644
-index 0000000..576bc99
+index 0000000..2fcc86d
 --- /dev/null
 +++ b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
 @@ -0,0 +1,52 @@
@@ -239,7 +245,7 @@ index 0000000..576bc99
 +import java.util.List;
 +
 +@RunWith(RobolectricTestRunner.class)
-+@Config(manifest = Config.NONE)
++@Config(manifest = Config.NONE, sdk = 33)
 +public class AniListClientTest {
 +
 +    @Test

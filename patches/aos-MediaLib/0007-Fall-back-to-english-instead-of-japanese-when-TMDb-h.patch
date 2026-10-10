@@ -15,9 +15,9 @@ missing or in a non latin script the user did not ask for.
 ---
  .../themoviedb3/MovieIdParser2.java           |  7 +-
  .../themoviedb3/ShowIdParser.java             | 13 +--
- .../themoviedb3/TmdbTextFallback.java         | 80 +++++++++++++++++++
- .../themoviedb3/TmdbTextFallbackTest.java     | 77 ++++++++++++++++++
- 4 files changed, 169 insertions(+), 8 deletions(-)
+ .../themoviedb3/TmdbTextFallback.java         | 86 +++++++++++++++++++
+ .../themoviedb3/TmdbTextFallbackTest.java     | 77 +++++++++++++++++
+ 4 files changed, 175 insertions(+), 8 deletions(-)
  create mode 100644 src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java
  create mode 100644 test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java
 
@@ -91,10 +91,10 @@ index d3114cc..649e7e7 100644
              List<String> spokenLanguages = new ArrayList<String>();
 diff --git a/src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java b/src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java
 new file mode 100644
-index 0000000..324c7ab
+index 0000000..2c8687c
 --- /dev/null
 +++ b/src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,86 @@
 +// Licensed under the Apache License, Version 2.0 (the "License");
 +// you may not use this file except in compliance with the License.
 +// You may obtain a copy of the License at
@@ -148,13 +148,19 @@ index 0000000..324c7ab
 +            i += Character.charCount(cp);
 +            if (!Character.isLetter(cp)) continue;
 +            letters++;
-+            if (Character.UnicodeScript.of(cp) != Character.UnicodeScript.LATIN) nonLatin++;
++            if (!isLatinLetter(cp)) nonLatin++;
 +        }
 +        return letters > 0 && nonLatin * 2 > letters;
 +    }
 +
-+    private static final java.util.Set<String> NON_LATIN_LANGUAGES = java.util.Set.of(
-+            "ja", "zh", "ko", "ru", "uk", "be", "bg", "sr", "mk", "el", "he", "ar", "fa", "hi", "th", "ka", "hy");
++    private static final java.util.Set<String> NON_LATIN_LANGUAGES = new java.util.HashSet<>(java.util.Arrays.asList(
++            "ja", "zh", "ko", "ru", "uk", "be", "bg", "sr", "mk", "el", "he", "ar", "fa", "hi", "th", "ka", "hy"));
++    // Character.UnicodeScript needs API 24, minSdk is 23
++    static boolean isLatinLetter(int cp) {
++        return cp < 0x250 || (cp >= 0x1E00 && cp <= 0x1EFF) || (cp >= 0x2C60 && cp <= 0x2C7F)
++                || (cp >= 0xA720 && cp <= 0xA7FF) || (cp >= 0xFF21 && cp <= 0xFF5A);
++    }
++
 +
 +    private static String translated(Translations translations, String language, boolean show, boolean overview) {
 +        if (translations == null || translations.translations == null) return null;
@@ -177,7 +183,7 @@ index 0000000..324c7ab
 +}
 diff --git a/test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java b/test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java
 new file mode 100644
-index 0000000..c29ad15
+index 0000000..9a14923
 --- /dev/null
 +++ b/test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java
 @@ -0,0 +1,77 @@
@@ -209,7 +215,7 @@ index 0000000..c29ad15
 +import java.util.ArrayList;
 +
 +@RunWith(RobolectricTestRunner.class)
-+@Config(manifest = Config.NONE)
++@Config(manifest = Config.NONE, sdk = 33)
 +public class TmdbTextFallbackTest {
 +
 +    private static Translations translations(String[]... entries) {

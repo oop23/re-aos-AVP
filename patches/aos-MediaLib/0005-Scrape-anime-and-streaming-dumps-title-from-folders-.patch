@@ -17,11 +17,11 @@ Movies (300, 1917, 'Title - 2', 'Title - 1977') and generic folders
 Adds unit tests for this naming and for metadata overrides.
 ---
  .../preprocess/FolderEpisodeMatcher.java      |  65 +++++
- .../preprocess/FolderEpisodeNaming.java       | 228 ++++++++++++++++++
+ .../preprocess/FolderEpisodeNaming.java       | 230 ++++++++++++++++++
  .../preprocess/SearchPreprocessor.java        |   2 +
  .../mediascraper/MetadataOverridesTest.java   |  98 ++++++++
  .../preprocess/FolderEpisodeNamingTest.java   |  90 +++++++
- 5 files changed, 483 insertions(+)
+ 5 files changed, 485 insertions(+)
  create mode 100644 src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
  create mode 100644 src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
  create mode 100644 test/java/com/archos/mediascraper/MetadataOverridesTest.java
@@ -100,10 +100,10 @@ index 0000000..a8ed50a
 +}
 diff --git a/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
 new file mode 100644
-index 0000000..7aff306
+index 0000000..5430267
 --- /dev/null
 +++ b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
-@@ -0,0 +1,228 @@
+@@ -0,0 +1,230 @@
 +// Licensed under the Apache License, Version 2.0 (the "License");
 +// you may not use this file except in compliance with the License.
 +// You may obtain a copy of the License at
@@ -118,6 +118,8 @@ index 0000000..7aff306
 +
 +package com.archos.mediascraper.preprocess;
 +
++import java.util.Arrays;
++import java.util.HashSet;
 +import java.util.List;
 +import java.util.Locale;
 +import java.util.Set;
@@ -194,11 +196,11 @@ index 0000000..7aff306
 +                    + "multi|dual(?:audio)?|pl|eng|jap|jpn|napisy|lektor|dubbing|sub|subs|subbed|dub|dubbed)\\b");
 +
 +    // folders that never name a show
-+    private static final Set<String> GENERIC_FOLDERS = Set.of(
++    private static final Set<String> GENERIC_FOLDERS = new HashSet<>(Arrays.asList(
 +            "anime", "animes", "seriale", "serial", "series", "serie", "tv", "tv shows", "tvshows", "shows",
 +            "download", "downloads", "pobrane", "video", "videos", "wideo", "filmy", "movies", "films", "bajki",
 +            "media", "multimedia", "nowe", "new", "dump", "dumps", "shinden", "torrents", "public", "share",
-+            "volume1", "storage", "emulated", "0", "sdcard", "mnt", "usb", "nas", "home");
++            "volume1", "storage", "emulated", "0", "sdcard", "mnt", "usb", "nas", "home"));
 +
 +    /**
 +     * @param pathSegments path segments of the video, the last one being the file name
