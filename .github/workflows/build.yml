@@ -60,3 +60,50 @@ jobs:
           nova/FileCoreLibrary/build/reports/tests/
           nova/MediaLib/build/reports/tests/
           nova/Video/build/reports/lint-results-*.html
+
+  # Launches the APK on an emulator and prints small screenshots into the log (between
+  # SHOT-BEGIN/SHOT-END, base64 jpeg) so UI changes can be reviewed without a device.
+  screenshots:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: apk
+        path: apk
+    - name: enable kvm
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+    - name: write screenshot helper
+      run: |
+        command -v convert || (sudo apt-get update && sudo apt-get install -y imagemagick)
+        cat > shot.sh <<'SH'
+        #!/bin/bash
+        # usage: shot.sh name
+        adb exec-out screencap -p > "$1.png"
+        convert "$1.png" -resize 360x -quality 55 "$1.jpg"
+        echo "SHOT-BEGIN $1"; base64 -w 0 "$1.jpg"; echo; echo "SHOT-END $1"
+        SH
+        chmod +x shot.sh
+    - name: run on emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 34
+        arch: x86_64
+        target: google_apis
+        disable-animations: true
+        script: |
+          adb root || true
+          adb install -r -g "$(find apk -name '*.apk' | head -1)"
+          adb shell monkey -p io.github.oop23.renova -c android.intent.category.LAUNCHER 1
+          sleep 25
+          ./shot.sh 01-launch
+          adb shell input keyevent KEYCODE_BACK
+          sleep 3
+          ./shot.sh 02-after-back
+          adb shell am start -n io.github.oop23.renova/com.archos.mediacenter.video.utils.VideoPreferencesActivity || true
+          sleep 8
+          ./shot.sh 03-settings

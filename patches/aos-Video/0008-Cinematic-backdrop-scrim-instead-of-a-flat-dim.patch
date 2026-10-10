@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:22:23 +0000
+Subject: [PATCH] Cinematic backdrop scrim instead of a flat dim
+
+Backdrops were dimmed as a whole. The artwork now stays sharp and only
+the text side and the bottom fade into the dark theme background, like
+modern TV launchers.
+---
+ .../video/leanback/BackdropTask.java          | 33 +++++++++++++++++--
+ 1 file changed, 30 insertions(+), 3 deletions(-)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/BackdropTask.java b/src/main/java/com/archos/mediacenter/video/leanback/BackdropTask.java
+index 9ff6d71..192592d 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/BackdropTask.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/BackdropTask.java
+@@ -17,6 +17,9 @@ package com.archos.mediacenter.video.leanback;
+ import android.app.Activity;
+ import android.graphics.Bitmap;
+ import android.graphics.Canvas;
++import android.graphics.LinearGradient;
++import android.graphics.Paint;
++import android.graphics.Shader;
+ import android.graphics.drawable.ColorDrawable;
+ import android.graphics.drawable.Drawable;
+ import android.os.Handler;
+@@ -232,21 +235,45 @@ public class BackdropTask {
+         mBackdropView.setImageDrawable(null);
+     }
+ 
+-    /** Applies the existing dark scrim while Picasso is still decoding, not on the UI thread. */
++    /**
++     * Cinematic scrim applied while Picasso is still decoding, not on the UI thread: the artwork
++     * stays sharp on the right, text side (left) and bottom fade to the theme's dark background so
++     * titles and plots stay readable without dimming the whole picture.
++     */
+     public static final class BackdropDarkeningTransformation implements Transformation {
++        private static final int SCRIM = 0xFF07061A; // ReNova background (theme_gradient_start_blue)
++
+         @Override
+         public Bitmap transform(Bitmap source) {
+             Bitmap.Config config = source.getConfig() != null ? source.getConfig() : Bitmap.Config.ARGB_8888;
+             Bitmap result = source.copy(config, true);
++            if (result == null) return source;
+             Canvas canvas = new Canvas(result);
+-            canvas.drawARGB(32, 0, 0, 0);
++            int w = result.getWidth();
++            int h = result.getHeight();
++            canvas.drawARGB(24, 0, 0, 0);
++            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
++            // left: opaque behind the text column, gone at 65% of the width
++            paint.setShader(new LinearGradient(0, 0, w * 0.65f, 0,
++                    new int[] { withAlpha(SCRIM, 0xE6), withAlpha(SCRIM, 0x99), withAlpha(SCRIM, 0) },
++                    new float[] { 0f, 0.45f, 1f }, Shader.TileMode.CLAMP));
++            canvas.drawRect(0, 0, w, h, paint);
++            // bottom: rows of the details screen sit there
++            paint.setShader(new LinearGradient(0, h, 0, h * 0.45f,
++                    new int[] { withAlpha(SCRIM, 0xF2), withAlpha(SCRIM, 0) },
++                    null, Shader.TileMode.CLAMP));
++            canvas.drawRect(0, 0, w, h, paint);
+             if (result != source) source.recycle();
+             return result;
+         }
+ 
++        private static int withAlpha(int color, int alpha) {
++            return (color & 0x00FFFFFF) | (alpha << 24);
++        }
++
+         @Override
+         public String key() {
+-            return "backdrop-darkening-v1";
++            return "backdrop-cinematic-scrim-v1";
+         }
+     }
+ }

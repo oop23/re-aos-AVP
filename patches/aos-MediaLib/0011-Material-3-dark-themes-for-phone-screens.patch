@@ -1,0 +1,164 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:24:00 +0000
+Subject: [PATCH] Material 3 dark themes for phone screens
+
+Phone activities, dialogs and transparent screens move from AppCompat to
+Material 3 dark themes with color roles taken from the ReNova palette
+(indigo surfaces, violet primary, gold secondary). The black theme keeps
+neutral surfaces.
+---
+ build.gradle                     |  2 ++
+ res/drawable/background_2014.xml |  4 +--
+ res/values/themes.xml            | 58 +++++++++++++++++++++++++++-----
+ 3 files changed, 54 insertions(+), 10 deletions(-)
+
+diff --git a/build.gradle b/build.gradle
+index 8491117..43aca67 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -164,6 +164,8 @@ dependencies {
+     implementation 'androidx.lifecycle:lifecycle-process:2.11.0'
+     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+     implementation 'androidx.core:core:1.19.1'
++    // Material 3 themes (ReNova)
++    implementation 'com.google.android.material:material:1.14.0'
+     implementation 'androidx.legacy:legacy-support-core-utils:1.0.0'
+     implementation 'androidx.media:media:1.8.0'
+     implementation 'androidx.fragment:fragment:1.9.1'
+diff --git a/res/drawable/background_2014.xml b/res/drawable/background_2014.xml
+index dbd6e9a..b78167c 100644
+--- a/res/drawable/background_2014.xml
++++ b/res/drawable/background_2014.xml
+@@ -4,7 +4,7 @@
+ 
+     <gradient
+         android:angle="90"
+-        android:endColor="#ff013a67"
+-        android:startColor="#ff002643" />
++        android:endColor="#ff1A1147"
++        android:startColor="#ff07061A" />
+ 
+ </shape>
+\ No newline at end of file
+diff --git a/res/values/themes.xml b/res/values/themes.xml
+index 4d66164..0c864bc 100644
+--- a/res/values/themes.xml
++++ b/res/values/themes.xml
+@@ -2,12 +2,25 @@
+ 
+ <resources>
+ 
+-    <style name="ArchosTheme" parent="Theme.AppCompat">
++    <style name="ArchosTheme" parent="Theme.Material3.Dark">
++        <!-- ReNova: Material 3 dark color roles from the logo palette -->
++        <item name="colorOnPrimary">@android:color/white</item>
++        <item name="colorPrimaryContainer">#2A1A6E</item>
++        <item name="colorOnPrimaryContainer">#E6E0FF</item>
++        <item name="colorSecondary">#FFD27A</item>
++        <item name="colorOnSecondary">#2B1D00</item>
++        <item name="colorSurface">#120C33</item>
++        <item name="colorOnSurface">#ECE8FF</item>
++        <item name="colorSurfaceVariant">#1F1850</item>
++        <item name="colorOnSurfaceVariant">#C8C2E8</item>
++        <item name="colorOutline">#6E6894</item>
++        <item name="android:colorBackground">#07061A</item>
++
+         <item name="actionBarStyle">@style/Widget.Material.ActionBar.Archos</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+         <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+-        <item name="android:navigationBarColor">#001b30</item>
++        <item name="android:navigationBarColor">#07061A</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
+     </style>
+ 
+@@ -15,7 +28,20 @@
+         <item name="background">@null</item>
+     </style>
+ 
+-    <style name="ArchosThemeBlueNoActionBar" parent="Theme.AppCompat.NoActionBar">
++    <style name="ArchosThemeBlueNoActionBar" parent="Theme.Material3.Dark.NoActionBar">
++        <!-- ReNova: Material 3 dark color roles from the logo palette -->
++        <item name="colorOnPrimary">@android:color/white</item>
++        <item name="colorPrimaryContainer">#2A1A6E</item>
++        <item name="colorOnPrimaryContainer">#E6E0FF</item>
++        <item name="colorSecondary">#FFD27A</item>
++        <item name="colorOnSecondary">#2B1D00</item>
++        <item name="colorSurface">#120C33</item>
++        <item name="colorOnSurface">#ECE8FF</item>
++        <item name="colorSurfaceVariant">#1F1850</item>
++        <item name="colorOnSurfaceVariant">#C8C2E8</item>
++        <item name="colorOutline">#6E6894</item>
++        <item name="android:colorBackground">#07061A</item>
++
+         <item name="android:windowBackground">@android:color/black</item>
+         <item name="windowActionModeOverlay">true</item>
+         <item name="actionBarStyle">@style/Widget.Holo.ActionBar.Archos</item>
+@@ -31,7 +57,7 @@
+         <item name="actionOverflowButtonStyle">@style/OverflowButtonStyle</item>
+         <!-- for the white back arrow -->
+         <item name="colorControlNormal">@android:color/white</item>
+-        <item name="android:navigationBarColor">#001b30</item>
++        <item name="android:navigationBarColor">#07061A</item>
+     </style>
+ 
+     <style name="DrawerArrowStyle" parent="Widget.AppCompat.DrawerArrowToggle">
+@@ -54,6 +80,10 @@
+         <item name="colorAccent">@color/theme_accent_black</item>
+         <item name="android:navigationBarColor">#000000</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog.Black</item>
++        <item name="colorPrimaryContainer">#363636</item>
++        <item name="colorSurface">#121212</item>
++        <item name="colorSurfaceVariant">#242424</item>
++        <item name="android:colorBackground">#000000</item>
+     </style>
+ 
+     <style name="ArchosThemeBlackNoActionBar" parent="Theme.AppCompat.NoActionBar">
+@@ -77,7 +107,19 @@
+         <item name="android:windowBackground">@android:color/black</item>
+     </style>
+ 
+-    <style name="Theme.AlertDialog" parent="Theme.AppCompat.Dialog.Alert">
++    <style name="Theme.AlertDialog" parent="ThemeOverlay.Material3.Dialog.Alert">
++        <!-- ReNova: Material 3 dark color roles from the logo palette -->
++        <item name="colorOnPrimary">@android:color/white</item>
++        <item name="colorPrimaryContainer">#2A1A6E</item>
++        <item name="colorOnPrimaryContainer">#E6E0FF</item>
++        <item name="colorSecondary">#FFD27A</item>
++        <item name="colorOnSecondary">#2B1D00</item>
++        <item name="colorSurface">#120C33</item>
++        <item name="colorOnSurface">#ECE8FF</item>
++        <item name="colorSurfaceVariant">#1F1850</item>
++        <item name="colorOnSurfaceVariant">#C8C2E8</item>
++        <item name="colorOutline">#6E6894</item>
++
+         <item name="colorPrimary">@color/lightblue500</item>
+         <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+@@ -97,14 +139,14 @@
+         <item name="android:windowIsTranslucent">true</item>
+     </style>
+ 
+-    <style name="Theme.TransparentCompat" parent="Theme.AppCompat.NoActionBar">
++    <style name="Theme.TransparentCompat" parent="Theme.Material3.Dark.NoActionBar">
+         <item name="android:windowBackground">@android:color/transparent</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+         <item name="colorAccent">@color/lightblue400</item>
+         <item name="android:colorBackgroundCacheHint">@null</item>
+         <item name="android:windowIsTranslucent">true</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
+-        <item name="android:navigationBarColor">#001b30</item>
++        <item name="android:navigationBarColor">#07061A</item>
+     </style>
+ 
+     <style name="Theme.Transparent" parent="Theme.AppCompat.NoActionBar">
+@@ -113,7 +155,7 @@
+         <item name="android:windowIsTranslucent">true</item>
+     </style>
+ 
+-    <style name="Theme.DialogMinWidth" parent="Theme.AppCompat.Dialog.MinWidth">
++    <style name="Theme.DialogMinWidth" parent="Theme.Material3.Dark.Dialog.MinWidth">
+         <item name="colorPrimary">@color/lightblue500</item>
+         <item name="colorAccent">@color/lightblue200</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>

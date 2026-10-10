@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:21:43 +0000
+Subject: [PATCH] Dark ReNova palette: status bar and leftover blue backgrounds
+
+---
+ res/values/leanback_themes.xml | 2 +-
+ res/values/nova_background.xml | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/res/values/leanback_themes.xml b/res/values/leanback_themes.xml
+index 94a93a6..752b807 100644
+--- a/res/values/leanback_themes.xml
++++ b/res/values/leanback_themes.xml
+@@ -25,7 +25,7 @@
+         <item name="android:windowAllowEnterTransitionOverlap">true</item>
+         <item name="android:windowContentTransitions">true</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+-        <item name="colorPrimaryDark">#002642</item>
++        <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
+         <item name="detailsActionButtonStyle">@style/MyDetailsActionButtonStyle</item>
+diff --git a/res/values/nova_background.xml b/res/values/nova_background.xml
+index 5540d5a..29362cb 100644
+--- a/res/values/nova_background.xml
++++ b/res/values/nova_background.xml
+@@ -1,4 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <color name="nova_background">#4AA4EC</color>
++    <color name="nova_background">#1A1147</color>
+ </resources>
+\ No newline at end of file

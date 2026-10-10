@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:21:42 +0000
+Subject: [PATCH] Dark ReNova palette for the default theme
+
+The default ('blue') theme is recolored to the dark indigo / violet of
+the ReNova logo with a gold highlight for the search orb. Color names
+are kept so every existing reference follows.
+---
+ res/values/colors.xml | 55 ++++++++++++++++++++++---------------------
+ res/values/themes.xml |  6 ++---
+ 2 files changed, 31 insertions(+), 30 deletions(-)
+
+diff --git a/res/values/colors.xml b/res/values/colors.xml
+index 238868f..bce7989 100644
+--- a/res/values/colors.xml
++++ b/res/values/colors.xml
+@@ -16,25 +16,26 @@
+ 
+ <resources>
+ 
+-    <!-- New colors for 2014 Material revamp -->
+-
+-    <color name="lightblue200">#81d4fa</color>
+-    <color name="lightblue400">#29b6f6</color>
+-    <color name="lightblue500">#03a9f4</color>
+-    <color name="lightblue600">#039be5</color>
+-    <color name="lightblue700">#0288d1</color>
+-    <color name="lightblue800">#0277bd</color>
+-    <color name="lightblue900">#01579b</color>
+-    <color name="lightblue900_alpha50">#8001579b</color>
++    <!-- ReNova: the default "blue" theme is recolored to the dark indigo / violet palette of the
++         logo (names kept so every existing reference follows), gold #FFD27A as highlight -->
++
++    <color name="lightblue200">#C9BEFF</color>
++    <color name="lightblue400">#9D8CFF</color>
++    <color name="lightblue500">#6C52F0</color>
++    <color name="lightblue600">#5B3FD9</color>
++    <color name="lightblue700">#3B1E8F</color>
++    <color name="lightblue800">#2A1A6E</color>
++    <color name="lightblue900">#1A1147</color>
++    <color name="lightblue900_alpha50">#801A1147</color>
+     <color name="white_alpha">#20ffffff</color>
+ 
+     <color name="lightblueA200">#448AFF</color>
+     <color name="lightblueA700">#2962FF</color>
+ 
+     <color name="green700">#388E3C</color>
+-    <color name="leanback_background_transparent">#AA013a67</color>
++    <color name="leanback_background_transparent">#AA120C33</color>
+ 
+-    <color name="leanback_background">#ff013a67</color>
++    <color name="leanback_background">#ff120C33</color>
+     <color name="leanback_background_black">#ff000000</color>
+     <color name="leanback_side">@color/lightblue900</color>
+     <color name="leanback_side_black">@color/lightgrey</color>
+@@ -43,7 +44,7 @@
+ 
+     <color name="error_text_over_blue_background">#ff5533</color>
+ 
+-    <color name="leanback_discreet_text_over_background">#ff074395</color>
++    <color name="leanback_discreet_text_over_background">#ff4A3A99</color>
+ 
+     <color name="leanback_no_episode_watched">#ff505050</color>
+     <color name="leanback_n_episodes_watched">#ff40a040</color>
+@@ -53,10 +54,10 @@
+ 
+     <!-- ___________________________________ -->
+ 
+-    <color name="my_holo_blue_very_dark">#ff0070a0</color>
+-    <color name="my_holo_blue_very_dark_dimmed">#200070a0</color>
+-    <color name="default_icon_background">#1003a9f4</color>
+-    <color name="default_icon_background_no_alpha">#ff003040</color>
++    <color name="my_holo_blue_very_dark">#ff3B1E8F</color>
++    <color name="my_holo_blue_very_dark_dimmed">#203B1E8F</color>
++    <color name="default_icon_background">#106C52F0</color>
++    <color name="default_icon_background_no_alpha">#ff1A1147</color>
+     <color name="default_icons_color_filter">#ff508090</color> <!-- not used anymore in Video -->
+ 
+     <color name="appwidget_text">#ffffffff</color>
+@@ -73,12 +74,12 @@
+     
+     <color name="list_item_background_grey">#20000000</color>
+ 
+-    <color name="grid_item_background">#ff012643</color>
++    <color name="grid_item_background">#ff1A1440</color>
+ 
+     <color name="video_info_list_item_background">#10ffffff</color>
+     
+-    <color name="video_info_next_prev_button_focused">#3333b5e5</color>
+-    <color name="video_info_next_prev_button_pressed">#8033b5e5</color>
++    <color name="video_info_next_prev_button_focused">#339D8CFF</color>
++    <color name="video_info_next_prev_button_pressed">#809D8CFF</color>
+     
+     <color name="help_overlay_button_normal">#ff2498e0</color>
+     <color name="help_overlay_button_selected">#ff62acdb</color>
+@@ -110,31 +111,31 @@
+     <color name="theme_details_secondary_blue">@color/lightblue700</color>
+     <color name="theme_details_secondary_black">#ff616161</color>
+     
+-    <color name="theme_grid_item_blue">#ff012643</color>
++    <color name="theme_grid_item_blue">#ff1A1440</color>
+     <color name="theme_grid_item_black">#ff363636</color>     <!-- Dark grey visible on black background -->
+     
+     <color name="theme_category_selector_blue">@color/lightblue800</color>
+     <color name="theme_category_selector_black">@color/lightgrey</color>
+     
+-    <color name="theme_list_pressed_blue">#ff33b5e5</color>
++    <color name="theme_list_pressed_blue">#ff6C52F0</color>
+     <color name="theme_list_pressed_black">@color/lightgrey</color>
+     
+-    <color name="theme_list_focused_blue">#ff0070a0</color>
++    <color name="theme_list_focused_blue">#ff3B1E8F</color>
+     <color name="theme_list_focused_black">@color/lightgrey</color>
+     
+     <color name="theme_rescan_blue">#ff2e7d32</color>
+     <color name="theme_rescan_black">#ff1b5e20</color>
+     
+     <!-- Private mode colors - themed for blue and black themes -->
+-    <color name="theme_private_mode_blue">#ff001b30</color>      <!-- Dark navy blue for blue theme -->
++    <color name="theme_private_mode_blue">#ff0B0820</color>      <!-- Dark navy blue for blue theme -->
+     <color name="theme_private_mode_black">#ff1a1a1a</color>     <!-- Dark charcoal for black theme -->
+     
+-    <color name="theme_gradient_start_blue">#ff002643</color>
++    <color name="theme_gradient_start_blue">#ff07061A</color>
+     <color name="theme_gradient_start_black">#ff000000</color>
+-    <color name="theme_gradient_end_blue">#ff013a67</color>
++    <color name="theme_gradient_end_blue">#ff1A1147</color>
+     <color name="theme_gradient_end_black">#ff363636</color>
+     
+-    <color name="theme_search_affordance_blue">@color/lightblueA200</color>
++    <color name="theme_search_affordance_blue">#ffFFD27A</color>
+     <color name="theme_search_affordance_black">@color/lightblueA200</color>
+     
+     <!-- Centralized UI accent colors - change these to theme the entire app (e.g., yellow theme) -->
+diff --git a/res/values/themes.xml b/res/values/themes.xml
+index c75e187..4d66164 100644
+--- a/res/values/themes.xml
++++ b/res/values/themes.xml
+@@ -5,7 +5,7 @@
+     <style name="ArchosTheme" parent="Theme.AppCompat">
+         <item name="actionBarStyle">@style/Widget.Material.ActionBar.Archos</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+-        <item name="colorPrimaryDark">#002642</item>
++        <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+         <item name="android:navigationBarColor">#001b30</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
+@@ -20,7 +20,7 @@
+         <item name="windowActionModeOverlay">true</item>
+         <item name="actionBarStyle">@style/Widget.Holo.ActionBar.Archos</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+-        <item name="colorPrimaryDark">#002642</item>
++        <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+         <item name="android:statusBarColor">@android:color/transparent</item>
+@@ -79,7 +79,7 @@
+ 
+     <style name="Theme.AlertDialog" parent="Theme.AppCompat.Dialog.Alert">
+         <item name="colorPrimary">@color/lightblue500</item>
+-        <item name="colorPrimaryDark">#002642</item>
++        <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+     </style>
+ 

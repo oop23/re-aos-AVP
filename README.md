@@ -52,6 +52,10 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 ### 🔊 Correct audio language
 - A polish voice-over (*lektor*) or dub tagged `eng`/`und` in the container is detected from the track title (`Lektor PL`, `Dubbing`, `Polski`…) or the release name (`PL.LEKTOR`, `PLDUB`, `[Lektor PL]`), so the preferred-language track is picked and labelled correctly. Works for other languages' track titles too (Deutsch, VFF, Castellano…).
 
+### 🌙 Modern dark look
+- Material 3 dark themes on phone screens with the ReNova palette (indigo surfaces, violet primary, gold highlights); the TV interface follows the same palette.
+- Cinematic backdrops: the artwork stays sharp, only the text side and the bottom fade into the background (instead of dimming the whole picture).
+
 ### 🎨 New identity
 - ReNova Player name, dark logo (a renewal arrow around a play button, with a nova spark), TV banner and status bar icon. Sources in [`branding/`](branding).
 - Separate package `io.github.oop23.renova` with its own content providers: **installs next to the original NOVA**.
@@ -59,7 +63,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 ### Roadmap
 - Deeper anime support: AniList/MyAnimeList ids, absolute episode numbering (One Piece 1050), anime-first matching for anime folders.
 - Better poster/backdrop selection and image quality, nicer blur effects.
-- Darker, modernized theme matching the new logo, player UI refresh.
+- Further mobile UI modernization (browse and details screens), player UI refresh.
 
 ## Download
 
