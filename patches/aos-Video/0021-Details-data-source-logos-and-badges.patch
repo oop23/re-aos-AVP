@@ -1,0 +1,227 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:04:13 +0000
+Subject: [PATCH] Details: data source logos and badges
+
+Next to the TMDb / IMDb logos, the details screen shows the AniList logo
+when AniList identified the anime (opens it on anilist.co), an NFO badge
+when the info was read from an .nfo file and a 'Your edits' badge when
+the info was edited by hand.
+---
+ res/drawable/anilist_logo.xml                 | 17 ++++++++++
+ res/drawable/data_source_chip.xml             |  6 ++++
+ res/layout/video_info2_scraper.xml            | 23 ++++++++++++++
+ res/values-pl/strings.xml                     |  2 ++
+ res/values/strings.xml                        |  2 ++
+ res/values/styles.xml                         | 16 ++++++++++
+ .../video/info/VideoInfoActivityFragment.java | 31 +++++++++++++++++++
+ 7 files changed, 97 insertions(+)
+ create mode 100644 res/drawable/anilist_logo.xml
+ create mode 100644 res/drawable/data_source_chip.xml
+
+diff --git a/res/drawable/anilist_logo.xml b/res/drawable/anilist_logo.xml
+new file mode 100644
+index 0000000..eb8ae97
+--- /dev/null
++++ b/res/drawable/anilist_logo.xml
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- AniList mark (credit for anime titles identified through anilist.co) -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="30dp"
++    android:height="30dp"
++    android:viewportWidth="64"
++    android:viewportHeight="64">
++    <path
++        android:fillColor="#0B1622"
++        android:pathData="M12,0h40a12,12 0 0 1 12,12v40a12,12 0 0 1 -12,12h-40a12,12 0 0 1 -12,-12v-40a12,12 0 0 1 12,-12z" />
++    <path
++        android:fillColor="#02A9FF"
++        android:pathData="M35,14h8v28h13v8h-21z" />
++    <path
++        android:fillColor="#FFFFFF"
++        android:pathData="M18,14h9l11,36h-8.5l-2.2,-7.5h-9.6l-2.2,7.5h-8.5zM22.5,24.5l-3,11h6z" />
++</vector>
+diff --git a/res/drawable/data_source_chip.xml b/res/drawable/data_source_chip.xml
+new file mode 100644
+index 0000000..8c736bd
+--- /dev/null
++++ b/res/drawable/data_source_chip.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <corners android:radius="8dp" />
++    <solid android:color="#1FFFFFFF" />
++    <stroke android:width="1dp" android:color="#40FFFFFF" />
++</shape>
+diff --git a/res/layout/video_info2_scraper.xml b/res/layout/video_info2_scraper.xml
+index 0c54ae7..1a8a41d 100644
+--- a/res/layout/video_info2_scraper.xml
++++ b/res/layout/video_info2_scraper.xml
+@@ -95,6 +95,29 @@
+                     card_view:srcCompat="@drawable/imdb_logo"
+                     android:contentDescription="IMDb"
+                     tools:ignore="HardcodedText" />
++
++                <!-- ReNova: other places the info comes from -->
++                <ImageButton
++                    android:id="@+id/scrap_link_anilist"
++                    android:layout_width="wrap_content"
++                    android:layout_marginStart="5dip"
++                    android:background="@drawable/transparent_ripple"
++                    android:layout_height="fill_parent"
++                    android:padding="5dip"
++                    android:visibility="gone"
++                    card_view:srcCompat="@drawable/anilist_logo"
++                    android:contentDescription="AniList"
++                    tools:ignore="HardcodedText" />
++
++                <TextView
++                    android:id="@+id/scrap_source_nfo"
++                    style="@style/DataSourceChip"
++                    android:text="@string/data_source_nfo" />
++
++                <TextView
++                    android:id="@+id/scrap_source_edited"
++                    style="@style/DataSourceChip"
++                    android:text="@string/data_source_edited" />
+             </LinearLayout>
+             <LinearLayout
+ 
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index 70759e5..49f03ec 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1015,4 +1015,6 @@
+     <string name="renova_credits_summary">Podziękowania dla zespołu NOVA i Archos Video Player Community Edition. ReNova to niezależny fork.</string>
+     <string name="preferences_ambient_mode">Tryb kinowy</string>
+     <string name="preferences_ambient_mode_summary">Delikatna poświata w kolorach filmu wokół obrazu zamiast czarnych pasów (jak tryb kinowy w YouTube)</string>
++    <string name="data_source_nfo">NFO</string>
++    <string name="data_source_edited">✎ Twoje zmiany</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index f4bbcc4..f8762a0 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1110,4 +1110,6 @@
+     <string name="renova_credits_summary">Thanks to the NOVA team and the Archos Video Player Community Edition. ReNova is an independent fork.</string>
+     <string name="preferences_ambient_mode">Cinema mode</string>
+     <string name="preferences_ambient_mode_summary">Soft glow in the colors of the video around the picture instead of black bars (like YouTube\'s ambient mode)</string>
++    <string name="data_source_nfo">NFO</string>
++    <string name="data_source_edited">✎ Your edits</string>
+ </resources>
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index c40bb64..09cf28e 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -297,4 +297,20 @@
+         <item name="windowSplashScreenAnimationDuration">900</item>
+         <item name="postSplashScreenTheme">@style/ArchosThemeLauncher</item>
+     </style>
++    <!-- small labelled badge next to the TMDb / IMDb / AniList logos on details -->
++    <style name="DataSourceChip">
++        <item name="android:layout_width">wrap_content</item>
++        <item name="android:layout_height">wrap_content</item>
++        <item name="android:layout_gravity">center_vertical</item>
++        <item name="android:layout_marginStart">8dp</item>
++        <item name="android:paddingStart">8dp</item>
++        <item name="android:paddingEnd">8dp</item>
++        <item name="android:paddingTop">3dp</item>
++        <item name="android:paddingBottom">3dp</item>
++        <item name="android:background">@drawable/data_source_chip</item>
++        <item name="android:textColor">#E6FFFFFF</item>
++        <item name="android:textSize">12sp</item>
++        <item name="android:textStyle">bold</item>
++        <item name="android:visibility">gone</item>
++    </style>
+ </resources>
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 241a4db..bc3e8ed 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -113,7 +113,9 @@ import com.archos.mediacenter.video.utils.VideoMetadata;
+ import com.archos.mediaprovider.video.VideoStore;
+ import com.archos.mediaprovider.video.VideoStoreImportImpl;
+ import com.archos.mediascraper.BaseTags;
++import com.archos.mediascraper.DataSources;
+ import com.archos.mediascraper.EpisodeTags;
++import com.archos.mediascraper.MetadataOverrides;
+ import com.archos.mediascraper.MovieTags;
+ import com.archos.mediascraper.NfoWriter;
+ import com.archos.mediascraper.Scraper;
+@@ -128,6 +130,7 @@ import com.github.ksoichiro.android.observablescrollview.ScrollState;
+ import com.google.android.material.floatingactionbutton.FloatingActionButton;
+ import com.squareup.picasso.Picasso;
+ import com.archos.mediacenter.video.utils.VideoUtils;
++import com.archos.mediacenter.video.utils.WebUtils;
+ 
+ import java.beans.PropertyChangeListener;
+ import java.io.IOException;
+@@ -246,6 +249,10 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+     private View mIMDBIcon;
+     private View mTMDBIcon;
+     private View mTVDBIcon;
++    private View mAniListIcon;
++    private View mNfoSourceChip;
++    private View mEditedSourceChip;
++    private String mAniListQuery;
+     private LinearLayout mScrapTrailers;
+     private LinearLayout mSourceLayout;
+     private VideoBadgePresenter mVideoBadgePresenter;
+@@ -516,6 +523,10 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         mTMDBIcon.setOnClickListener(this);
+         mTVDBIcon = mRoot.findViewById(R.id.scrap_link_tvdb);
+         mTVDBIcon.setOnClickListener(this);
++        mAniListIcon = mRoot.findViewById(R.id.scrap_link_anilist);
++        mAniListIcon.setOnClickListener(this);
++        mNfoSourceChip = mRoot.findViewById(R.id.scrap_source_nfo);
++        mEditedSourceChip = mRoot.findViewById(R.id.scrap_source_edited);
+         mScraperPlotContainer = (CardView)mRoot.findViewById(R.id.scraper_plot_container);
+         mPlotTextView = (TextView) mRoot.findViewById(R.id.scrap_plot);
+         mGenreTextView = (TextView) mRoot.findViewById(R.id.scrap_genre);
+@@ -1289,6 +1300,9 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+             startActivity(it);
+             //WebUtils.openWebLink(getActivity(), imdbUrl);
+         }
++        else if(view == mAniListIcon && mAniListQuery != null){
++            WebUtils.openWebLink(getActivity(), "https://anilist.co/search/anime?search=" + Uri.encode(mAniListQuery));
++        }
+         else if(view == mPosterImageView){
+             if(!mCurrentVideo.hasScraperData())
+                 return;
+@@ -1297,6 +1311,17 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         }
+     }
+ 
++    /** Credit where the info comes from, next to the TMDb / IMDb logos. */
++    private void showDataSources(long tmdbShowId, String itemOverrideKey, String showOverrideKey) {
++        Context context = getContext();
++        if (context == null || mCurrentVideo == null) return;
++        mAniListIcon.setVisibility(DataSources.isAniListShow(context, tmdbShowId) ? View.VISIBLE : View.GONE);
++        mNfoSourceChip.setVisibility(DataSources.isNfo(context, mCurrentVideo.getFilePath()) ? View.VISIBLE : View.GONE);
++        boolean edited = MetadataOverrides.has(context, itemOverrideKey)
++                || (showOverrideKey != null && MetadataOverrides.has(context, showOverrideKey));
++        mEditedSourceChip.setVisibility(edited ? View.VISIBLE : View.GONE);
++    }
++
+     private void selectNewPoster() {
+         Intent intent = new Intent(getActivity(), VideoInfoPosterBackdropActivity.class);
+         intent.putExtra(VideoInfoPosterBackdropActivity.EXTRA_VIDEO, mCurrentVideo);
+@@ -2005,11 +2030,17 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+                             //mTMDBId = finalTags.getOnlineId();
+                             mTMDBId = mOnlineId;
+                             if (log.isDebugEnabled()) log.debug("FullScraperTagsTask:onPostExecute: mTMDBId={}", mTMDBId);
++                            mAniListQuery = ((EpisodeTags) finalTags).getShowTitle();
++                            showDataSources(mOnlineId,
++                                    MetadataOverrides.episodeKey(mCurrentVideo.getFilePath()),
++                                    mOnlineId > 0 ? MetadataOverrides.showKey(mOnlineId) : null);
+                         } else if (finalTags instanceof MovieTags) {
+                             mIsVideoMovie = true;
+                             mTVDBIcon.setVisibility(View.GONE);
+                             mTMDBIcon.setVisibility(finalTags.getOnlineId() >= 0 ? View.VISIBLE : View.GONE);
+                             mTMDBId = finalTags.getOnlineId();
++                            mAniListQuery = finalTags.getTitle();
++                            showDataSources(-1, MetadataOverrides.movieKey(mCurrentVideo.getFilePath()), null);
+                             date = ((MovieTags) finalTags).getYear() + "";
+                             studio = ((MovieTags) finalTags).getStudiosFormatted();
+                             if (log.isDebugEnabled()) log.debug("FullScraperTagsTask:onPostExecute: mTMDBId={}", mTMDBId);

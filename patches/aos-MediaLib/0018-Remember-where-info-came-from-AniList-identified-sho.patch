@@ -1,0 +1,175 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:04:13 +0000
+Subject: [PATCH] Remember where info came from: AniList-identified shows, NFO
+ imports
+
+Kept on the device (private preferences) so the details screen can credit
+the services and files the info was taken from.
+---
+ src/com/archos/mediascraper/DataSources.java  | 64 +++++++++++++++++++
+ src/com/archos/mediascraper/NfoParser.java    |  1 +
+ .../mediascraper/themoviedb3/SearchShow.java  | 18 +++++-
+ .../themoviedb3/SearchShowParser.java         |  2 +
+ 4 files changed, 83 insertions(+), 2 deletions(-)
+ create mode 100644 src/com/archos/mediascraper/DataSources.java
+
+diff --git a/src/com/archos/mediascraper/DataSources.java b/src/com/archos/mediascraper/DataSources.java
+new file mode 100644
+index 0000000..0ae4c56
+--- /dev/null
++++ b/src/com/archos/mediascraper/DataSources.java
+@@ -0,0 +1,64 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.net.Uri;
++
++import com.archos.environment.ArchosUtils;
++
++/**
++ * Remembers which services helped identify a title, so the details screens can credit them with
++ * their logos (TMDb and IMDb are known from the ids stored with the tags).
++ *
++ * Kept on the device in private preferences, like everything ReNova learns about the library.
++ */
++public final class DataSources {
++
++    private static final String PREFS = "data_sources";
++    private static final String ANILIST_SHOW = "anilist:show:";
++    private static final String NFO = "nfo:";
++
++    private DataSources() {}
++
++    /** The TMDb show was found or confirmed through AniList titles. */
++    public static void markAniListShow(long tmdbShowId) {
++        if (tmdbShowId <= 0) return;
++        Context context = ArchosUtils.getGlobalContext();
++        if (context == null) return;
++        SharedPreferences prefs = prefs(context);
++        String key = ANILIST_SHOW + tmdbShowId;
++        if (!prefs.getBoolean(key, false)) prefs.edit().putBoolean(key, true).apply();
++    }
++
++    public static boolean isAniListShow(Context context, long tmdbShowId) {
++        return tmdbShowId > 0 && prefs(context).getBoolean(ANILIST_SHOW + tmdbShowId, false);
++    }
++
++    /** The info of this video was read from an .nfo file next to it. */
++    public static void markNfo(Context context, Uri video) {
++        if (context == null || video == null) return;
++        SharedPreferences prefs = prefs(context);
++        String key = NFO + video;
++        if (!prefs.getBoolean(key, false)) prefs.edit().putBoolean(key, true).apply();
++    }
++
++    public static boolean isNfo(Context context, String videoPath) {
++        return videoPath != null && prefs(context).getBoolean(NFO + videoPath, false);
++    }
++
++    private static SharedPreferences prefs(Context context) {
++        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++    }
++}
+diff --git a/src/com/archos/mediascraper/NfoParser.java b/src/com/archos/mediascraper/NfoParser.java
+index f1c6ae1..df2865f 100644
+--- a/src/com/archos/mediascraper/NfoParser.java
++++ b/src/com/archos/mediascraper/NfoParser.java
+@@ -291,6 +291,7 @@ public class NfoParser {
+                 importContext.getParser().parse(nfoInputStream, rootHandler);
+                 BaseTags tag = rootHandler.getResult(context, nfo.videoFile);
+                 if (tag != null) {
++                    DataSources.markNfo(context, nfo.videoFile);
+                     if (tag instanceof MovieTags) {
+                         MovieTags movieTags = (MovieTags) tag;
+ 
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShow.java b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+index 0bed1ea..ab313cf 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShow.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+@@ -28,6 +28,7 @@ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+ import java.io.IOException;
++import java.util.List;
+ 
+ import retrofit2.Response;
+ 
+@@ -44,6 +45,7 @@ public class SearchShow {
+         boolean authIssue = false;
+         boolean notFoundIssue = true;
+         boolean isResponseOk = false;
++        boolean foundThroughAniList = false;
+         boolean isResponseEmpty = false;
+         boolean serviceError = false;
+         String showKey = null;
+@@ -137,7 +139,10 @@ public class SearchShow {
+                                 response = tmdb.searchService().tv(alternateTitle, 1, "en", year, false).execute();
+                                 if (response.isSuccessful()) isResponseOk = true;
+                             }
+-                            if (response.body() != null && response.body().total_results > 0) break;
++                            if (response.body() != null && response.body().total_results > 0) {
++                                foundThroughAniList = true;
++                                break;
++                            }
+                         }
+                     }
+                     if (response.body() == null || response.body().total_results == 0) notFoundIssue = true;
+@@ -177,6 +182,7 @@ public class SearchShow {
+                     myResult.result = SearchShowParser.getResult(
+                             (isResponseOk) ? response : null,
+                             searchInfo, year, language, resultLimit, showScraper);
++                    if (foundThroughAniList) markAniList(myResult.result);
+                     if ((myResult.result == null || myResult.result.isEmpty())
+                             && SearchShowParser.isAnimePath(searchInfo.getFile())) {
+                         // every result was rejected as not being the anime: search TMDb again under
+@@ -188,7 +194,10 @@ public class SearchShow {
+                                 if (!retry.isSuccessful() || retry.body() == null || retry.body().total_results == 0) continue;
+                                 if (log.isDebugEnabled()) log.debug("search: anime retry with AniList title {} in {}", alternateTitle, lang);
+                                 myResult.result = SearchShowParser.getResult(retry, searchInfo, year, lang, resultLimit, showScraper);
+-                                if (myResult.result != null && !myResult.result.isEmpty()) break;
++                                if (myResult.result != null && !myResult.result.isEmpty()) {
++                                    markAniList(myResult.result);
++                                    break;
++                                }
+                             }
+                             if (myResult.result != null && !myResult.result.isEmpty()) break;
+                         }
+@@ -210,6 +219,11 @@ public class SearchShow {
+         return myResult;
+     }
+ 
++    private static void markAniList(List<SearchResult> results) {
++        if (results == null) return;
++        for (SearchResult result : results) com.archos.mediascraper.DataSources.markAniListShow(result.getId());
++    }
++
+     public static void debugLruCache(LruCache<String, Response<TvShowResultsPage>> lruCache) {
+         if (log.isDebugEnabled()) log.debug("debugLruCache(Tier2): size={}, put={}, hit={}, miss={}, evict={}", lruCache.size(), lruCache.putCount(), lruCache.hitCount(), lruCache.missCount(), lruCache.evictionCount());
+     }
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+index 746fbf8..a053347 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+@@ -96,6 +96,8 @@ public class SearchShowParser {
+                                 series.name, series.original_name, aniListTitles);
+                         continue;
+                     }
++                    // AniList confirmed this one: credit it on the details screens
++                    com.archos.mediascraper.DataSources.markAniListShow(series.id);
+                 }
+                 Bundle extra = new Bundle();
+                 extra.putString(ShowUtils.EPNUM, String.valueOf(searchInfo.getEpisode()));

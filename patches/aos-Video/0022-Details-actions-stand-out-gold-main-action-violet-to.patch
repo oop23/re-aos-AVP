@@ -1,0 +1,168 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:05:32 +0000
+Subject: [PATCH] Details actions stand out: gold main action, violet tonal
+ others
+
+Phone: resume (or play when there is nothing to resume) is a gold pill,
+other actions violet tonal pills, info cards use a palette surface
+instead of CardView's grey. TV: details actions are violet, the focused
+one gold with dark text.
+---
+ res/color/leanback_action_button_text.xml     |  5 ++++
+ res/drawable/action_button_primary.xml        | 12 ++++++++++
+ res/drawable/action_button_tonal.xml          | 13 ++++++++++
+ res/drawable/leanback_action_button_bg.xml    | 17 +++++++++++++
+ res/values/colors.xml                         |  2 ++
+ res/values/leanback_themes.xml                |  2 ++
+ .../video/info/VideoInfoActivityFragment.java | 24 +++++++++++++++++++
+ 7 files changed, 75 insertions(+)
+ create mode 100644 res/color/leanback_action_button_text.xml
+ create mode 100644 res/drawable/action_button_primary.xml
+ create mode 100644 res/drawable/action_button_tonal.xml
+ create mode 100644 res/drawable/leanback_action_button_bg.xml
+
+diff --git a/res/color/leanback_action_button_text.xml b/res/color/leanback_action_button_text.xml
+new file mode 100644
+index 0000000..771f542
+--- /dev/null
++++ b/res/color/leanback_action_button_text.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true" android:color="#2B1D00" />
++    <item android:color="#F1EDFF" />
++</selector>
+diff --git a/res/drawable/action_button_primary.xml b/res/drawable/action_button_primary.xml
+new file mode 100644
+index 0000000..1595db0
+--- /dev/null
++++ b/res/drawable/action_button_primary.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- main action on details (Resume, or Play when there is nothing to resume): gold pill -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#40000000">
++    <item>
++        <inset android:insetLeft="8dp" android:insetRight="8dp" android:insetTop="4dp" android:insetBottom="4dp">
++            <shape android:shape="rectangle">
++                <corners android:radius="24dp" />
++                <gradient android:angle="270" android:startColor="#FFE3A2" android:endColor="#FFC85F" />
++            </shape>
++        </inset>
++    </item>
++</ripple>
+diff --git a/res/drawable/action_button_tonal.xml b/res/drawable/action_button_tonal.xml
+new file mode 100644
+index 0000000..baf8ebd
+--- /dev/null
++++ b/res/drawable/action_button_tonal.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- other actions on details: violet tonal pill with a light edge -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#40FFFFFF">
++    <item>
++        <inset android:insetLeft="8dp" android:insetRight="8dp" android:insetTop="4dp" android:insetBottom="4dp">
++            <shape android:shape="rectangle">
++                <corners android:radius="24dp" />
++                <solid android:color="#2E2470" />
++                <stroke android:width="1dp" android:color="#33FFFFFF" />
++            </shape>
++        </inset>
++    </item>
++</ripple>
+diff --git a/res/drawable/leanback_action_button_bg.xml b/res/drawable/leanback_action_button_bg.xml
+new file mode 100644
+index 0000000..7f7f69f
+--- /dev/null
++++ b/res/drawable/leanback_action_button_bg.xml
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- TV details actions: gold when focused, violet otherwise (the stock grey ones blended together) -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <shape android:shape="rectangle">
++            <corners android:radius="24dp" />
++            <gradient android:angle="270" android:startColor="#FFE3A2" android:endColor="#FFC85F" />
++        </shape>
++    </item>
++    <item>
++        <shape android:shape="rectangle">
++            <corners android:radius="24dp" />
++            <solid android:color="#B32E2470" />
++            <stroke android:width="1dp" android:color="#33FFFFFF" />
++        </shape>
++    </item>
++</selector>
+diff --git a/res/values/colors.xml b/res/values/colors.xml
+index 83b6794..e43b920 100644
+--- a/res/values/colors.xml
++++ b/res/values/colors.xml
+@@ -21,4 +21,6 @@
+ 
+     <!-- Overlay progress indicators -->
+     <color name="scanner_progress_text">#888888</color>
++    <!-- ReNova: CardView's dark default is a flat grey #424242, use a palette surface instead -->
++    <color name="cardview_dark_background">#FF1A1446</color>
+ </resources>
+diff --git a/res/values/leanback_themes.xml b/res/values/leanback_themes.xml
+index 7f87b79..4b9cef7 100644
+--- a/res/values/leanback_themes.xml
++++ b/res/values/leanback_themes.xml
+@@ -55,6 +55,8 @@
+     <style name="MyDetailsActionButtonStyle" parent="Widget.Leanback.DetailsActionButtonStyle">
+         <item name="android:textAlignment">center</item>
+         <item name="android:gravity">center</item>
++        <item name="android:background">@drawable/leanback_action_button_bg</item>
++        <item name="android:textColor">@color/leanback_action_button_text</item>
+     </style>
+ 
+     <!-- Neutral launcher theme for leanback to avoid blue flash -->
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index bc3e8ed..3122558 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -18,6 +18,7 @@ import android.annotation.SuppressLint;
+ import android.app.Activity;
+ import android.content.ComponentName;
+ import android.content.Context;
++import android.graphics.Typeface;
+ import android.content.DialogInterface;
+ import android.content.Intent;
+ import android.content.ServiceConnection;
+@@ -53,6 +54,7 @@ import android.widget.LinearLayout;
+ import android.widget.TextView;
+ import android.widget.Toast;
+ 
++import androidx.core.widget.TextViewCompat;
+ import androidx.activity.result.ActivityResultLauncher;
+ import androidx.activity.result.IntentSenderRequest;
+ import androidx.activity.result.contract.ActivityResultContracts;
+@@ -750,6 +752,28 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         }
+         else mResumeLocalButton.setVisibility(View.GONE);
+         updateGenericButtonAction();
++        styleActionButtons();
++    }
++
++    /**
++     * The main action (resume when there is a position to resume from, play otherwise) is a gold
++     * pill, the others violet tonal pills: they used to be plain text rows on a grey card.
++     */
++    private void styleActionButtons() {
++        Button primary = mResumeLocalButton.getVisibility() == View.VISIBLE ? mResumeLocalButton : mPlayButton;
++        for (Button button : new Button[] { mPlayButton, mResumeLocalButton, mRemoteResumeButton, mNextEpisodeButton, mListEpisodesButton }) {
++            if (button == null) continue;
++            boolean isPrimary = button == primary;
++            int start = button.getPaddingStart(), top = button.getPaddingTop();
++            int end = button.getPaddingEnd(), bottom = button.getPaddingBottom();
++            button.setBackgroundResource(isPrimary ? R.drawable.action_button_primary : R.drawable.action_button_tonal);
++            button.setPaddingRelative(start, top, end, bottom);
++            int textColor = isPrimary ? 0xFF2B1D00 : 0xFFF1EDFF;
++            button.setTextColor(textColor);
++            TextViewCompat.setCompoundDrawableTintList(button, ColorStateList.valueOf(textColor));
++            button.setAllCaps(false);
++            button.setTypeface(null, isPrimary ? Typeface.BOLD : Typeface.NORMAL);
++        }
+     }
+ 
+     @Override

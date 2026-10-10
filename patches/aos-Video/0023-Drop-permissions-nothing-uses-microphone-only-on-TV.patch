@@ -1,0 +1,156 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:06:25 +0000
+Subject: [PATCH] Drop permissions nothing uses, microphone only on TV
+
+Bluetooth connect, Wi-Fi state changes, sticky broadcasts and the
+non-existent USB_PERMISSION are gone. The microphone (voice search with
+TV remotes) is no longer asked for on phones at first start.
+---
+ AndroidManifest.xml                           |  7 ++---
+ .../video/browser/PermissionChecker.java      | 28 ++++++++++++++-----
+ 2 files changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index f072673..6e6d778 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -43,12 +43,10 @@
+         android:name="android.software.leanback"
+         android:required="false" />
+ 
+-    <uses-permission android:name="android.permission.USB_PERMISSION" />
+ 
+     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+     <uses-feature android:name="android.hardware.wifi" android:required="false" />
+     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+ 
+     <!-- Used for scanning and trakt -->
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+@@ -68,12 +66,10 @@
+     <!--<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />-->
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+     <!-- uses-permission android:name="android.permission.DEVICE_POWER" / -->
+     <!-- uses-permission android:name="android.permission.INJECT_EVENTS" / -->
+     <!-- uses-permission android:name="android.permission.STATUS_BAR" / -->
+-    <uses-permission android:name="android.permission.BROADCAST_STICKY" />
+     <!-- uses-permission android:name="android.permission.ARCHOS_READ_RAWFS" / -->
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ 
+@@ -85,8 +81,9 @@
+         android:name="com.android.providers.tv.permission.WRITE_EPG_DATA"
+         android:required="false" />
+ 
+-    <!-- Required for SpeechRecognition -->
++    <!-- Required for SpeechRecognition (voice search with TV remotes, only asked on TV) -->
+     <uses-permission android:name="android.permission.RECORD_AUDIO" />
++    <!-- ReNova: no Bluetooth, Wi-Fi switching, sticky broadcasts or fake USB permission, nothing uses them -->
+ 
+     <queries>
+         <intent>
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/PermissionChecker.java b/src/main/java/com/archos/mediacenter/video/browser/PermissionChecker.java
+index 8d89961..701675d 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/PermissionChecker.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/PermissionChecker.java
+@@ -32,6 +32,7 @@ import androidx.appcompat.app.AppCompatActivity;
+ import androidx.core.app.ActivityCompat;
+ import androidx.core.content.ContextCompat;
+ 
++import com.archos.environment.ArchosFeatures;
+ import com.archos.environment.ArchosUtils;
+ import com.archos.mediacenter.video.CustomApplication;
+ import com.archos.mediacenter.video.R;
+@@ -41,6 +42,7 @@ import com.archos.mediaprovider.video.VideoStoreImportService;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.List;
+ 
+@@ -78,6 +80,18 @@ public class PermissionChecker {
+         mListener = listener;
+     }
+ 
++    /**
++     * ReNova: the microphone only serves voice search with TV remotes, a phone never asks for it.
++     */
++    private static void requestPermissions(Activity activity, String[] permissions, int requestCode) {
++        boolean tv = ArchosFeatures.isAndroidTV(activity);
++        List<String> wanted = new ArrayList<>();
++        for (String permission : permissions) {
++            if (tv || !Manifest.permission.RECORD_AUDIO.equals(permission)) wanted.add(permission);
++        }
++        ActivityCompat.requestPermissions(activity, wanted.toArray(new String[0]), requestCode);
++    }
++
+     /**
+      * will create checker only when permission isn't granted ?
+      * @param activity
+@@ -109,7 +123,7 @@ public class PermissionChecker {
+             if (!isDialogDisplayed && !Environment.isExternalStorageManager()) {
+                 if (log.isDebugEnabled()) log.debug("checkAndRequestPermission: requesting MANAGE_EXTERNAL_STORAGE");
+                 if(Build.VERSION.SDK_INT >= 34) { // Need FOREGROUND_SERVICE_DATA_* too
+-                    ActivityCompat.requestPermissions(
++                    requestPermissions(
+                             activity,
+                             new String[]{ // MANAGE_EXTERNAL_STORAGE provides READ thus no need to ask both except for legacy code?
+                                     Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+@@ -123,7 +137,7 @@ public class PermissionChecker {
+                     isDialogDisplayed = true;
+                 } else {
+                     if (Build.VERSION.SDK_INT >= 33) { // Need POST_NOTIFICATIONS too
+-                        ActivityCompat.requestPermissions(
++                        requestPermissions(
+                                 activity,
+                                 new String[]{ // MANAGE_EXTERNAL_STORAGE provides READ thus no need to ask both except for legacy code?
+                                         Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+@@ -134,7 +148,7 @@ public class PermissionChecker {
+                         );
+                         isDialogDisplayed = true;
+                     } else {
+-                        ActivityCompat.requestPermissions(
++                        requestPermissions(
+                                 activity,
+                                 new String[]{ // MANAGE_EXTERNAL_STORAGE provides READ thus no need to ask both except for legacy code?
+                                         Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+@@ -151,7 +165,7 @@ public class PermissionChecker {
+             if (Build.VERSION.SDK_INT >= 34) { // API>=33 no WRITE_EXTERNAL_STORAGE and READ_EXTERNAL_STORAGE needs extra media granularity
+                 if (!isDialogDisplayed && ContextCompat.checkSelfPermission(mActivity, android.Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                     if (log.isDebugEnabled()) log.debug("checkAndRequestPermission: API>=33 requesting READ_MEDIA_VIDEO");
+-                    ActivityCompat.requestPermissions(
++                    requestPermissions(
+                             activity,
+                             new String[]{
+                                     Manifest.permission.READ_MEDIA_VIDEO,
+@@ -169,7 +183,7 @@ public class PermissionChecker {
+                 if (Build.VERSION.SDK_INT >= 33) { // API>=33 no WRITE_EXTERNAL_STORAGE and READ_EXTERNAL_STORAGE needs extra media granularity
+                     if (!isDialogDisplayed && ContextCompat.checkSelfPermission(mActivity, android.Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                         if (log.isDebugEnabled()) log.debug("checkAndRequestPermission: API>=33 requesting READ_MEDIA_VIDEO");
+-                        ActivityCompat.requestPermissions(
++                        requestPermissions(
+                                 activity,
+                                 new String[]{
+                                         Manifest.permission.READ_MEDIA_VIDEO,
+@@ -185,7 +199,7 @@ public class PermissionChecker {
+                     if (Build.VERSION.SDK_INT <= 29) { // 23<=API<=29 WRITE_EXTERNAL_STORAGE and READ_EXTERNAL_STORAGE auto-granted (READ should be auto-granted via WRITE)
+                         if (!isDialogDisplayed && ContextCompat.checkSelfPermission(mActivity, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                             if (log.isDebugEnabled()) log.debug("checkAndRequestPermission: 23<=API<30 requesting (READ|WRITE)_EXTERNAL_STORAGE");
+-                            ActivityCompat.requestPermissions(
++                            requestPermissions(
+                                     activity,
+                                     new String[]{
+                                             Manifest.permission.READ_EXTERNAL_STORAGE,
+@@ -199,7 +213,7 @@ public class PermissionChecker {
+                     } else { // 30<=API<33 WRITE_EXTERNAL_STORAGE does nothing and is not in manifest thus only READ_EXTERNAL_STORAGE
+                         if (!isDialogDisplayed && ContextCompat.checkSelfPermission(mActivity, android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                             if (log.isDebugEnabled()) log.debug("checkAndRequestPermission: 30<=API<33 requesting READ_EXTERNAL_STORAGE");
+-                            ActivityCompat.requestPermissions(
++                            requestPermissions(
+                                     activity,
+                                     new String[]{
+                                             Manifest.permission.READ_EXTERNAL_STORAGE,
