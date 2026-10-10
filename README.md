@@ -66,7 +66,8 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
 - **Stop button** in the control bar, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
-- Title and menu on a soft top fade with strong text shadows: readable on bright scenes.
+- Title and menu on a soft top fade with strong text shadows: readable on bright scenes. Subtitles are outlined by default.
+- **Edit info** from the player menu, to fix a wrong title or episode without leaving the video.
 - Optional **cinema mode** (like YouTube's ambient mode): the bars around the picture glow softly with the colors of the scene instead of being black.
 - Brightness is never written to the system nor remembered; the brightness button is gone and the swipe is an opt-in setting on the left edge only.
 
@@ -77,6 +78,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Material 3 dark themes on phone screens with the ReNova palette (indigo surfaces, violet primary, gold highlights); the TV interface follows the same palette.
 - Animated splash screen (the renewal arrow spins into place, the nova spark flares) and a blur-in entrance into the app.
 - **Modern dialogs** everywhere: rounded cards lit from the top, and on Android 12+ the screen behind is blurred, not just dimmed.
+- Info cards tinted by the artwork are kept dark enough for white text (a yellow poster no longer gives unreadable yellow cards).
 - Details actions stand out: the main one (Resume, or Play) is a gold pill, the others violet; info cards use the palette instead of a flat grey.
 - On details the artwork blurs softly as the info scrolls over it (Android 12+).
 - Cinematic backdrops: the artwork stays sharp, only the text side and the bottom fade into the background (instead of dimming the whole picture).
