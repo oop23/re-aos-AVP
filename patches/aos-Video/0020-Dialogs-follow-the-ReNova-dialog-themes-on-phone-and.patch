@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:00:50 +0000
+Subject: [PATCH] Dialogs follow the ReNova dialog themes on phone and TV
+
+The metadata editor no longer turns light with the system theme; TV
+screens get the same AppCompat, Material and framework dialog themes.
+---
+ res/values/leanback_themes.xml | 10 ++++++++++
+ res/values/styles.xml          |  2 +-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/res/values/leanback_themes.xml b/res/values/leanback_themes.xml
+index 752b807..7f87b79 100644
+--- a/res/values/leanback_themes.xml
++++ b/res/values/leanback_themes.xml
+@@ -28,6 +28,8 @@
+         <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog</item>
+         <item name="detailsActionButtonStyle">@style/MyDetailsActionButtonStyle</item>
+     </style>
+ 
+@@ -45,6 +47,8 @@
+         <item name="colorPrimaryDark">#000000</item>
+         <item name="colorAccent">@color/theme_accent_black</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog.Black</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog.Black</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog.Black</item>
+         <item name="detailsActionButtonStyle">@style/MyDetailsActionButtonStyle</item>
+     </style>
+ 
+@@ -67,6 +71,8 @@
+         <item name="colorPrimaryDark">@android:color/black</item>
+         <item name="colorAccent">@color/ui_accent_secondary</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog</item>
+     </style>
+ 
+     <style name="MyLeanbackTheme.Transparent">
+@@ -85,6 +91,8 @@
+         <item name="android:windowBackground">@android:color/transparent</item>
+         <item name="android:backgroundDimEnabled">true</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog</item>
+     </style>
+ 
+     <style name="MyLeanbackPreferenceTheme" parent="PreferenceThemeOverlayLeanback">
+@@ -101,6 +109,8 @@
+         <item name="android:windowBackground">@android:color/transparent</item>
+         <item name="android:backgroundDimEnabled">true</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog.Black</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog.Black</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog.Black</item>
+     </style>
+ 
+     <style name="MyLeanbackPreferenceTheme.Black" parent="PreferenceThemeOverlayLeanback">
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index 35ff32e..c40bb64 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -289,7 +289,7 @@
+         <item name="android:textSize">20sp</item>
+     </style>
+     <!-- Material 3 theme carried by dialogs shown from both AppCompat and leanback screens -->
+-    <style name="MetadataEditDialogTheme" parent="Theme.Material3.DayNight.NoActionBar" />
++    <style name="MetadataEditDialogTheme" parent="ArchosTheme" />
+     <!-- ReNova splash: animated logo on the dark background (Android 12+ animates, older shows it still) -->
+     <style name="Theme.ReNova.Splash" parent="Theme.SplashScreen">
+         <item name="windowSplashScreenBackground">#07061A</item>

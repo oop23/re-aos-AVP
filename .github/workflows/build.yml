@@ -84,9 +84,10 @@ jobs:
         cat > shot.sh <<'SH'
         #!/bin/bash
         # usage: shot.sh name
+        # small jpeg published as a job annotation (readable through the checks API)
         adb exec-out screencap -p > "$1.png"
-        convert "$1.png" -resize 360x -quality 55 "$1.jpg"
-        echo "SHOT-BEGIN $1"; base64 -w 0 "$1.jpg"; echo; echo "SHOT-END $1"
+        convert "$1.png" -resize 320x -quality 50 "$1.jpg"
+        echo "::notice title=SHOT $1::$(base64 -w 0 "$1.jpg")"
         SH
         chmod +x shot.sh
     - name: make a test video
@@ -120,3 +121,10 @@ jobs:
           adb shell input tap 640 360
           sleep 2
           ./shot.sh 05-player-controls
+          adb shell input keyevent KEYCODE_BACK
+          adb shell input keyevent KEYCODE_BACK
+          sleep 3
+          ./shot.sh 06-after-player
+          # each script line runs in its own shell: keep every command on one line
+          adb logcat -d -b crash > crash.txt || true
+          if [ -s crash.txt ]; then echo "::warning title=CRASH::$(grep -A15 -i 'renova\|FATAL' crash.txt | head -c 3500 | tr '\n' '|' | tr -d '%')"; fi

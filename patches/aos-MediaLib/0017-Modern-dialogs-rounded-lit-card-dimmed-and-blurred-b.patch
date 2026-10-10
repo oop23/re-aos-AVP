@@ -1,0 +1,352 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:00:50 +0000
+Subject: [PATCH] Modern dialogs: rounded lit card, dimmed and blurred backdrop
+
+Every dialog family (AppCompat, MaterialAlertDialogBuilder, framework)
+gets the ReNova palette with Material 3 surface container roles, a 28dp
+rounded card lit from the top with a thin light edge, and on Android 12+
+the screen behind is blurred instead of only dimmed. The black theme
+moves to Material 3 too.
+---
+ res/drawable/renova_dialog_background.xml     |  19 +++
+ .../renova_dialog_background_black.xml        |  18 +++
+ res/values-v31/colors.xml                     |   8 ++
+ res/values-v31/themes.xml                     |  40 +++++++
+ res/values/colors.xml                         |   6 +
+ res/values/dimens.xml                         |   1 +
+ res/values/themes.xml                         | 110 +++++++++++++++++-
+ 7 files changed, 198 insertions(+), 4 deletions(-)
+ create mode 100644 res/drawable/renova_dialog_background.xml
+ create mode 100644 res/drawable/renova_dialog_background_black.xml
+ create mode 100644 res/values-v31/colors.xml
+ create mode 100644 res/values-v31/themes.xml
+
+diff --git a/res/drawable/renova_dialog_background.xml b/res/drawable/renova_dialog_background.xml
+new file mode 100644
+index 0000000..1135941
+--- /dev/null
++++ b/res/drawable/renova_dialog_background.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova dialogs: rounded, softly lit from the top, thin light edge (see Theme.AlertDialog) -->
++<inset xmlns:android="http://schemas.android.com/apk/res/android"
++    android:insetLeft="20dp"
++    android:insetTop="24dp"
++    android:insetRight="20dp"
++    android:insetBottom="24dp">
++    <shape android:shape="rectangle">
++        <corners android:radius="28dp" />
++        <gradient
++            android:angle="270"
++            android:startColor="@color/renova_dialog_top"
++            android:endColor="@color/renova_dialog_bottom"
++            android:type="linear" />
++        <stroke
++            android:width="1dp"
++            android:color="@color/renova_dialog_edge" />
++    </shape>
++</inset>
+diff --git a/res/drawable/renova_dialog_background_black.xml b/res/drawable/renova_dialog_background_black.xml
+new file mode 100644
+index 0000000..0bbabb8
+--- /dev/null
++++ b/res/drawable/renova_dialog_background_black.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<inset xmlns:android="http://schemas.android.com/apk/res/android"
++    android:insetLeft="20dp"
++    android:insetTop="24dp"
++    android:insetRight="20dp"
++    android:insetBottom="24dp">
++    <shape android:shape="rectangle">
++        <corners android:radius="28dp" />
++        <gradient
++            android:angle="270"
++            android:startColor="@color/renova_dialog_black_top"
++            android:endColor="@color/renova_dialog_black_bottom"
++            android:type="linear" />
++        <stroke
++            android:width="1dp"
++            android:color="@color/renova_dialog_edge" />
++    </shape>
++</inset>
+diff --git a/res/values-v31/colors.xml b/res/values-v31/colors.xml
+new file mode 100644
+index 0000000..931ea8a
+--- /dev/null
++++ b/res/values-v31/colors.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <!-- frosted glass: the content behind the dialog is blurred, let a little of it through -->
++    <color name="renova_dialog_top">#E6241A5C</color>
++    <color name="renova_dialog_bottom">#EB130D36</color>
++    <color name="renova_dialog_black_top">#E6262626</color>
++    <color name="renova_dialog_black_bottom">#EB141414</color>
++</resources>
+diff --git a/res/values-v31/themes.xml b/res/values-v31/themes.xml
+new file mode 100644
+index 0000000..8810b18
+--- /dev/null
++++ b/res/values-v31/themes.xml
+@@ -0,0 +1,40 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <!-- Android 12+: what is behind a dialog is blurred, not only dimmed -->
++    <style name="Theme.AlertDialog" parent="ReNovaBase.Theme.AlertDialog">
++        <item name="android:windowBlurBehindEnabled">true</item>
++        <item name="android:windowBlurBehindRadius">@dimen/renova_dialog_blur</item>
++        <item name="android:backgroundDimAmount">0.4</item>
++    </style>
++
++    <style name="Theme.AlertDialog.Black" parent="ReNovaBase.Theme.AlertDialog.Black">
++        <item name="android:windowBlurBehindEnabled">true</item>
++        <item name="android:windowBlurBehindRadius">@dimen/renova_dialog_blur</item>
++        <item name="android:backgroundDimAmount">0.4</item>
++    </style>
++
++    <style name="ThemeOverlay.ReNova.MaterialAlertDialog" parent="ReNovaBase.ThemeOverlay.ReNova.MaterialAlertDialog">
++        <item name="android:windowBlurBehindEnabled">true</item>
++        <item name="android:windowBlurBehindRadius">@dimen/renova_dialog_blur</item>
++        <item name="android:backgroundDimAmount">0.4</item>
++    </style>
++
++    <style name="ThemeOverlay.ReNova.MaterialAlertDialog.Black" parent="ReNovaBase.ThemeOverlay.ReNova.MaterialAlertDialog.Black">
++        <item name="android:windowBlurBehindEnabled">true</item>
++        <item name="android:windowBlurBehindRadius">@dimen/renova_dialog_blur</item>
++        <item name="android:backgroundDimAmount">0.4</item>
++    </style>
++
++    <style name="Theme.ReNova.FrameworkAlertDialog" parent="ReNovaBase.Theme.ReNova.FrameworkAlertDialog">
++        <item name="android:windowBlurBehindEnabled">true</item>
++        <item name="android:windowBlurBehindRadius">@dimen/renova_dialog_blur</item>
++        <item name="android:backgroundDimAmount">0.4</item>
++    </style>
++
++    <style name="Theme.ReNova.FrameworkAlertDialog.Black" parent="ReNovaBase.Theme.ReNova.FrameworkAlertDialog.Black">
++        <item name="android:windowBlurBehindEnabled">true</item>
++        <item name="android:windowBlurBehindRadius">@dimen/renova_dialog_blur</item>
++        <item name="android:backgroundDimAmount">0.4</item>
++    </style>
++
++</resources>
+diff --git a/res/values/colors.xml b/res/values/colors.xml
+index bce7989..42e2029 100644
+--- a/res/values/colors.xml
++++ b/res/values/colors.xml
+@@ -148,5 +148,11 @@
+     <color name="ui_accent_alpha50">@color/lightblue900_alpha50</color> <!-- Semi-transparent accent -->
+     <color name="ui_selector">@color/lightblue800</color>            <!-- Selector/focus highlight -->
+     <color name="ui_text_accent">@color/lightblue500</color>         <!-- Accent text color -->
++    <!-- ReNova dialogs (translucent variants on Android 12+ where the background is blurred) -->
++    <color name="renova_dialog_top">#241A5C</color>
++    <color name="renova_dialog_bottom">#130D36</color>
++    <color name="renova_dialog_black_top">#262626</color>
++    <color name="renova_dialog_black_bottom">#141414</color>
++    <color name="renova_dialog_edge">#26FFFFFF</color>
+ </resources>
+ 
+diff --git a/res/values/dimens.xml b/res/values/dimens.xml
+index b77c274..0e7d7ab 100644
+--- a/res/values/dimens.xml
++++ b/res/values/dimens.xml
+@@ -151,4 +151,5 @@
+ 
+     <dimen name="musicplayer_album_art_size">250dip</dimen>
+ 
++    <dimen name="renova_dialog_blur">28dp</dimen>
+ </resources>
+diff --git a/res/values/themes.xml b/res/values/themes.xml
+index 0c864bc..e26a62a 100644
+--- a/res/values/themes.xml
++++ b/res/values/themes.xml
+@@ -14,6 +14,14 @@
+         <item name="colorSurfaceVariant">#1F1850</item>
+         <item name="colorOnSurfaceVariant">#C8C2E8</item>
+         <item name="colorOutline">#6E6894</item>
++        <item name="colorSurfaceContainerLowest">#05041A</item>
++        <item name="colorSurfaceContainerLow">#0E0A2A</item>
++        <item name="colorSurfaceContainer">#150F3A</item>
++        <item name="colorSurfaceContainerHigh">#1C1548</item>
++        <item name="colorSurfaceContainerHighest">#241B57</item>
++        <item name="colorSurfaceBright">#2E2466</item>
++        <item name="colorSurfaceDim">#07061A</item>
++        <item name="colorTertiary">#FFD27A</item>
+         <item name="android:colorBackground">#07061A</item>
+ 
+         <item name="actionBarStyle">@style/Widget.Material.ActionBar.Archos</item>
+@@ -22,6 +30,8 @@
+         <item name="colorAccent">@color/lightblue400</item>
+         <item name="android:navigationBarColor">#07061A</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog</item>
+     </style>
+ 
+     <style name="Widget.Material.ActionBar.Archos" parent="Widget.AppCompat.ActionBar">
+@@ -40,6 +50,14 @@
+         <item name="colorSurfaceVariant">#1F1850</item>
+         <item name="colorOnSurfaceVariant">#C8C2E8</item>
+         <item name="colorOutline">#6E6894</item>
++        <item name="colorSurfaceContainerLowest">#05041A</item>
++        <item name="colorSurfaceContainerLow">#0E0A2A</item>
++        <item name="colorSurfaceContainer">#150F3A</item>
++        <item name="colorSurfaceContainerHigh">#1C1548</item>
++        <item name="colorSurfaceContainerHighest">#241B57</item>
++        <item name="colorSurfaceBright">#2E2466</item>
++        <item name="colorSurfaceDim">#07061A</item>
++        <item name="colorTertiary">#FFD27A</item>
+         <item name="android:colorBackground">#07061A</item>
+ 
+         <item name="android:windowBackground">@android:color/black</item>
+@@ -58,6 +76,9 @@
+         <!-- for the white back arrow -->
+         <item name="colorControlNormal">@android:color/white</item>
+         <item name="android:navigationBarColor">#07061A</item>
++        <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog</item>
+     </style>
+ 
+     <style name="DrawerArrowStyle" parent="Widget.AppCompat.DrawerArrowToggle">
+@@ -80,13 +101,26 @@
+         <item name="colorAccent">@color/theme_accent_black</item>
+         <item name="android:navigationBarColor">#000000</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog.Black</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog.Black</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog.Black</item>
+         <item name="colorPrimaryContainer">#363636</item>
+         <item name="colorSurface">#121212</item>
+         <item name="colorSurfaceVariant">#242424</item>
++        <item name="colorSurfaceContainerLow">#161616</item>
++        <item name="colorSurfaceContainer">#1C1C1C</item>
++        <item name="colorSurfaceContainerHigh">#242424</item>
++        <item name="colorSurfaceContainerHighest">#2E2E2E</item>
+         <item name="android:colorBackground">#000000</item>
+     </style>
+ 
+-    <style name="ArchosThemeBlackNoActionBar" parent="Theme.AppCompat.NoActionBar">
++    <style name="ArchosThemeBlackNoActionBar" parent="Theme.Material3.Dark.NoActionBar">
++        <item name="colorSurface">#121212</item>
++        <item name="colorSurfaceContainer">#1C1C1C</item>
++        <item name="colorSurfaceContainerHigh">#242424</item>
++        <item name="android:colorBackground">#000000</item>
++        <item name="alertDialogTheme">@style/Theme.AlertDialog.Black</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog.Black</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog.Black</item>
+         <item name="android:windowBackground">@drawable/background_2014_dark</item>
+         <item name="windowActionModeOverlay">true</item>
+         <item name="actionBarStyle">@style/Widget.Holo.ActionBar.Archos</item>
+@@ -107,7 +141,7 @@
+         <item name="android:windowBackground">@android:color/black</item>
+     </style>
+ 
+-    <style name="Theme.AlertDialog" parent="ThemeOverlay.Material3.Dialog.Alert">
++    <style name="ReNovaBase.Theme.AlertDialog" parent="ThemeOverlay.Material3.Dialog.Alert">
+         <!-- ReNova: Material 3 dark color roles from the logo palette -->
+         <item name="colorOnPrimary">@android:color/white</item>
+         <item name="colorPrimaryContainer">#2A1A6E</item>
+@@ -119,18 +153,78 @@
+         <item name="colorSurfaceVariant">#1F1850</item>
+         <item name="colorOnSurfaceVariant">#C8C2E8</item>
+         <item name="colorOutline">#6E6894</item>
++        <item name="colorSurfaceContainerLowest">#05041A</item>
++        <item name="colorSurfaceContainerLow">#0E0A2A</item>
++        <item name="colorSurfaceContainer">#150F3A</item>
++        <item name="colorSurfaceContainerHigh">#1C1548</item>
++        <item name="colorSurfaceContainerHighest">#241B57</item>
++        <item name="colorSurfaceBright">#2E2466</item>
++        <item name="colorSurfaceDim">#07061A</item>
++        <item name="colorTertiary">#FFD27A</item>
+ 
+-        <item name="colorPrimary">@color/lightblue500</item>
++        <item name="colorPrimary">@color/lightblue400</item>
+         <item name="colorPrimaryDark">#07061A</item>
+         <item name="colorAccent">@color/lightblue400</item>
++        <!-- rounded card, lit from the top, dimmed backdrop -->
++        <item name="android:windowBackground">@drawable/renova_dialog_background</item>
++        <item name="android:backgroundDimAmount">0.6</item>
++        <item name="android:windowElevation">12dp</item>
+     </style>
+ 
+-    <style name="Theme.AlertDialog.Black" parent="Theme.AppCompat.Dialog.Alert">
++    <style name="Theme.AlertDialog" parent="ReNovaBase.Theme.AlertDialog" />
++
++    <style name="ReNovaBase.Theme.AlertDialog.Black" parent="ThemeOverlay.Material3.Dialog.Alert">
+         <item name="colorPrimary">@color/theme_primary_black</item>
+         <item name="colorPrimaryDark">#000000</item>
+         <item name="colorAccent">@color/theme_accent_black</item>
++        <item name="colorSurface">#121212</item>
++        <item name="colorSurfaceContainerHigh">#242424</item>
++        <item name="android:windowBackground">@drawable/renova_dialog_background_black</item>
++        <item name="android:backgroundDimAmount">0.6</item>
++        <item name="android:windowElevation">12dp</item>
+     </style>
+ 
++    <style name="Theme.AlertDialog.Black" parent="ReNovaBase.Theme.AlertDialog.Black" />
++
++    <!-- MaterialAlertDialogBuilder: Material 3 shape and colors, plus blur behind on Android 12+ -->
++    <style name="ReNovaBase.ThemeOverlay.ReNova.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
++        <item name="colorPrimary">@color/lightblue400</item>
++        <item name="colorSurface">#120C33</item>
++        <item name="colorSurfaceContainerHigh">#1C1548</item>
++        <item name="colorOnSurface">#ECE8FF</item>
++        <item name="colorOnSurfaceVariant">#C8C2E8</item>
++        <item name="android:backgroundDimAmount">0.6</item>
++    </style>
++
++    <style name="ThemeOverlay.ReNova.MaterialAlertDialog" parent="ReNovaBase.ThemeOverlay.ReNova.MaterialAlertDialog" />
++
++    <style name="ReNovaBase.ThemeOverlay.ReNova.MaterialAlertDialog.Black" parent="ThemeOverlay.Material3.MaterialAlertDialog">
++        <item name="colorPrimary">@color/theme_primary_black</item>
++        <item name="colorSurface">#121212</item>
++        <item name="colorSurfaceContainerHigh">#242424</item>
++        <item name="android:backgroundDimAmount">0.6</item>
++    </style>
++
++    <style name="ThemeOverlay.ReNova.MaterialAlertDialog.Black" parent="ReNovaBase.ThemeOverlay.ReNova.MaterialAlertDialog.Black" />
++
++    <!-- android.app.AlertDialog / ProgressDialog: same card for the few framework dialogs left -->
++    <style name="ReNovaBase.Theme.ReNova.FrameworkAlertDialog" parent="android:Theme.Material.Dialog.Alert">
++        <item name="android:colorAccent">@color/lightblue400</item>
++        <item name="android:colorPrimary">@color/lightblue500</item>
++        <item name="android:windowBackground">@drawable/renova_dialog_background</item>
++        <item name="android:backgroundDimAmount">0.6</item>
++    </style>
++
++    <style name="Theme.ReNova.FrameworkAlertDialog" parent="ReNovaBase.Theme.ReNova.FrameworkAlertDialog" />
++
++    <style name="ReNovaBase.Theme.ReNova.FrameworkAlertDialog.Black" parent="android:Theme.Material.Dialog.Alert">
++        <item name="android:colorAccent">@color/theme_accent_black</item>
++        <item name="android:windowBackground">@drawable/renova_dialog_background_black</item>
++        <item name="android:backgroundDimAmount">0.6</item>
++    </style>
++
++    <style name="Theme.ReNova.FrameworkAlertDialog.Black" parent="ReNovaBase.Theme.ReNova.FrameworkAlertDialog.Black" />
++
+     <style name="ArchosThemeBlueOverlay" parent="ArchosThemeBlue">
+         <item name="windowActionBarOverlay">true</item>
+     </style>
+@@ -140,6 +234,10 @@
+     </style>
+ 
+     <style name="Theme.TransparentCompat" parent="Theme.Material3.Dark.NoActionBar">
++        <item name="colorSurface">#120C33</item>
++        <item name="colorSurfaceContainerHigh">#1C1548</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
++        <item name="android:alertDialogTheme">@style/Theme.ReNova.FrameworkAlertDialog</item>
+         <item name="android:windowBackground">@android:color/transparent</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+         <item name="colorAccent">@color/lightblue400</item>
+@@ -156,6 +254,10 @@
+     </style>
+ 
+     <style name="Theme.DialogMinWidth" parent="Theme.Material3.Dark.Dialog.MinWidth">
++        <item name="colorSurface">#120C33</item>
++        <item name="colorSurfaceContainerHigh">#1C1548</item>
++        <item name="android:windowBackground">@drawable/renova_dialog_background</item>
++        <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReNova.MaterialAlertDialog</item>
+         <item name="colorPrimary">@color/lightblue500</item>
+         <item name="colorAccent">@color/lightblue200</item>
+         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
