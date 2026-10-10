@@ -1,0 +1,119 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:44:03 +0000
+Subject: [PATCH] Cinema mode: smooth running average instead of a cross-fade
+ per capture
+
+A cross-fade every 700 ms between whole frames flickered. Captures now
+come five times a second and blend into a running average (about 1.5 s
+to follow a scene change), drawn into one reused bitmap.
+---
+ .../video/player/AmbientModeController.java   | 60 ++++++++++++-------
+ 1 file changed, 40 insertions(+), 20 deletions(-)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java b/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java
+index d22e0a2..04e56ab 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java
++++ b/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java
+@@ -17,9 +17,6 @@ import android.graphics.Bitmap;
+ import android.graphics.RenderEffect;
+ import android.graphics.Shader;
+ import android.graphics.drawable.BitmapDrawable;
+-import android.graphics.drawable.ColorDrawable;
+-import android.graphics.drawable.Drawable;
+-import android.graphics.drawable.TransitionDrawable;
+ import android.os.Build;
+ import android.os.Handler;
+ import android.os.HandlerThread;
+@@ -37,9 +34,9 @@ import org.slf4j.LoggerFactory;
+  * Optional "cinema mode" (YouTube's ambient mode): the bars around the picture glow with the
+  * colors of the video instead of being black.
+  *
+- * A tiny copy of the current frame is taken about once a second, blurred and stretched behind the
+- * video, then cross-faded so the glow follows the scene softly. Only pixels already on screen are
+- * read; nothing is stored.
++ * A tiny copy of the current frame is taken five times a second, blurred, and blended into a running
++ * average stretched behind the video: the glow drifts smoothly with the scene instead of jumping (a
++ * cross-fade per capture flickered). Only pixels already on screen are read; nothing is stored.
+  */
+ public final class AmbientModeController {
+ 
+@@ -47,8 +44,9 @@ public final class AmbientModeController {
+ 
+     public static final String KEY_AMBIENT_MODE = "player_ambient_mode";
+ 
+-    private static final long CAPTURE_INTERVAL_MS = 700;
+-    private static final int CROSSFADE_MS = 650;
++    private static final long CAPTURE_INTERVAL_MS = 200;
++    // share of a new frame in the running average: about 1.5 s to follow a scene change
++    private static final float BLEND = 0.12f;
+     private static final int SAMPLE_WIDTH = 32;
+     private static final float GLOW_ALPHA = 0.55f;
+ 
+@@ -59,7 +57,9 @@ public final class AmbientModeController {
+     private Handler mCopyHandler;
+     private boolean mRunning;
+     private boolean mCopyPending;
+-    private Drawable mCurrent;
++    private Bitmap mGlowBitmap;
++    private float[] mAverage; // r, g, b per pixel of mGlowBitmap
++    private int[] mPixels;
+ 
+     public AmbientModeController(ImageView glowView, SurfaceController surfaceController) {
+         mGlowView = glowView;
+@@ -105,7 +105,9 @@ public final class AmbientModeController {
+             mCopyHandler = null;
+         }
+         mGlowView.setImageDrawable(null);
+-        mCurrent = null;
++        mGlowBitmap = null;
++        mAverage = null;
++        mPixels = null;
+         mGlowView.setVisibility(View.GONE);
+     }
+ 
+@@ -146,16 +148,34 @@ public final class AmbientModeController {
+     };
+ 
+     private void show(Bitmap frame) {
+-        Bitmap glow = soften(frame);
+-        if (glow != frame) frame.recycle();
+-        BitmapDrawable next = new BitmapDrawable(mGlowView.getResources(), glow);
+-        next.setFilterBitmap(true);
+-        Drawable previous = mCurrent != null ? mCurrent : new ColorDrawable(0);
+-        TransitionDrawable fade = new TransitionDrawable(new Drawable[] { previous, next });
+-        fade.setCrossFadeEnabled(true);
+-        mGlowView.setImageDrawable(fade);
+-        fade.startTransition(CROSSFADE_MS);
+-        mCurrent = next;
++        Bitmap soft = soften(frame);
++        if (soft != frame) frame.recycle();
++        int w = soft.getWidth(), h = soft.getHeight();
++        if (mGlowBitmap == null || mGlowBitmap.getWidth() != w || mGlowBitmap.getHeight() != h) {
++            // new size (first frame or aspect change): start from black and fade in
++            mGlowBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
++            mAverage = new float[w * h * 3];
++            mPixels = new int[w * h];
++            BitmapDrawable drawable = new BitmapDrawable(mGlowView.getResources(), mGlowBitmap);
++            drawable.setFilterBitmap(true);
++            mGlowView.setImageDrawable(drawable);
++        }
++        soft.getPixels(mPixels, 0, w, 0, 0, w, h);
++        soft.recycle();
++        blend(mAverage, mPixels, BLEND);
++        mGlowBitmap.setPixels(mPixels, 0, w, 0, 0, w, h);
++        mGlowView.invalidate();
++    }
++
++    /** average += (frame - average) * k, then writes the average back into pixels */
++    static void blend(float[] average, int[] pixels, float k) {
++        for (int i = 0, a = 0; i < pixels.length; i++, a += 3) {
++            int c = pixels[i];
++            average[a] += (((c >> 16) & 0xff) - average[a]) * k;
++            average[a + 1] += (((c >> 8) & 0xff) - average[a + 1]) * k;
++            average[a + 2] += ((c & 0xff) - average[a + 2]) * k;
++            pixels[i] = 0xff000000 | (Math.round(average[a]) << 16) | (Math.round(average[a + 1]) << 8) | Math.round(average[a + 2]);
++        }
+     }
+ 
+     /**

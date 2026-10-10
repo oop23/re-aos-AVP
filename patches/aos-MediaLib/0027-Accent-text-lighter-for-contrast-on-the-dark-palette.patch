@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:41:05 +0000
+Subject: [PATCH] Accent text lighter for contrast on the dark palette
+
+---
+ res/values/colors.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/res/values/colors.xml b/res/values/colors.xml
+index 42e2029..d4bc185 100644
+--- a/res/values/colors.xml
++++ b/res/values/colors.xml
+@@ -147,7 +147,7 @@
+     <color name="ui_accent_light">@color/lightblue200</color>        <!-- Light accent (subtle highlights) -->
+     <color name="ui_accent_alpha50">@color/lightblue900_alpha50</color> <!-- Semi-transparent accent -->
+     <color name="ui_selector">@color/lightblue800</color>            <!-- Selector/focus highlight -->
+-    <color name="ui_text_accent">@color/lightblue500</color>         <!-- Accent text color -->
++    <color name="ui_text_accent">@color/lightblue200</color>         <!-- Accent text color -->
+     <!-- ReNova dialogs (translucent variants on Android 12+ where the background is blurred) -->
+     <color name="renova_dialog_top">#241A5C</color>
+     <color name="renova_dialog_bottom">#130D36</color>

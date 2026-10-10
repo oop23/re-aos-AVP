@@ -59,17 +59,18 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **Libraries no longer vanish** when a NAS is still asleep or a share answers empty: a rescan that would wipe most of a source is held back until the next scan confirms it (Kodi never auto-cleans either).
 - **Progress is kept** when you leave a resumed video while it is still loading (it used to be reset to 0).
 - The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
-- **One NAS, one entry**: a server found by IP (shown as an unnamed server) and by name (NetBIOS/mDNS, e.g. `TPLINK`) is merged, and the same share can no longer be indexed twice under its name and its IP (which scraped every video twice); libraries already indexed twice are pointed out once at start.
+- **One NAS, one library**: a server found by IP shows its name too (`192.168.1.10 (TPLINK)`), and the same share can no longer be indexed twice under its name and its IP (which scraped every video twice); libraries already indexed twice are pointed out once at start.
 
 ### ▶️ Player
-- Kodi-like **buffering progress** ("Buffering 45%") when playback waits for data.
+- Kodi-like **buffering progress** ("Buffering 45%") whenever playback stalls, and a percentage while a video loads.
+- **Volume in 50 fine steps** (2 %), shown as a column of dots on the left; -/+ on the top bar instead of a side bar taking room from the controls.
 - Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
 - **Stop button** in the control bar, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
 - Fewer icons over the video: audio and subtitles stay on top, info and bookmark move to the menu.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
 - Title and menu on a soft top fade with strong text shadows: readable on bright scenes. Subtitles are outlined by default.
 - **Edit info** from the player menu, to fix a wrong title or episode without leaving the video.
-- Optional **cinema mode** (like YouTube's ambient mode): the bars around the picture glow softly with the colors of the scene instead of being black.
+- Optional **cinema mode** (like YouTube's ambient mode): the bars around the picture glow softly with the colors of the scene, drifting smoothly with it.
 - Brightness is never written to the system nor remembered; the brightness button is gone and the swipe is an opt-in setting on the left edge only.
 
 ### 🔊 Correct audio language

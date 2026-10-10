@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:41:05 +0000
+Subject: [PATCH] Drawer section headers: small caps, aligned with the items
+
+---
+ res/layout/browser_category_item_separator.xml | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/res/layout/browser_category_item_separator.xml b/res/layout/browser_category_item_separator.xml
+index 3634f86..61aa33c 100644
+--- a/res/layout/browser_category_item_separator.xml
++++ b/res/layout/browser_category_item_separator.xml
+@@ -9,8 +9,13 @@
+     android:gravity="center_vertical"
+     android:clickable="false"
+     android:focusable="false"
+-    android:paddingStart="8dip"
+-    android:paddingEnd="8dip"
++    android:paddingStart="28dip"
++    android:paddingEnd="28dip"
++    android:paddingTop="12dip"
++    android:textAllCaps="true"
++    android:letterSpacing="0.08"
++    android:textSize="12sp"
++    android:textStyle="bold"
+     android:background="@android:color/transparent"
+ 
+     android:textColor="@color/ui_text_accent"

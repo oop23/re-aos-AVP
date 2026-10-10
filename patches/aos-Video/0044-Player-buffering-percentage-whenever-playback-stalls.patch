@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:47:11 +0000
+Subject: [PATCH] Player: buffering percentage whenever playback stalls, 0%
+ shown from the start of loading
+
+The native player only reports how much of the file is downloaded, so a
+watcher notices when the position stops moving during playback and
+shows how full the buffer ahead is (5 s counted as 100%). The loading
+screen shows a percentage from the start.
+---
+ .../video/player/PlayerActivity.java          | 35 +++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index 65ab7c6..d070fc0 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -320,6 +320,9 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+                 case MSG_PROGRESS_VISIBLE:
+                     if (mProgressView != null)
+                         mProgressView.setVisibility(View.VISIBLE);
++                    // ReNova: a percentage from the start, updated as data comes in
++                    if (mBufferView != null && mBufferView.getText().length() == 0)
++                        mBufferView.setText(" 0%");
+                     break;
+                 case MSG_TORRENT_STARTED:
+                     start();
+@@ -361,6 +364,35 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+ 
+     private View                mRootView;
+     private AmbientModeController mAmbientMode;
++    // ReNova: Kodi-like "Buffering 45%" when playback stalls waiting for data
++    private static final long STALL_CHECK_MS = 500;
++    private static final long STALL_AFTER_MS = 800;
++    private static final int STALL_TARGET_MS = 5000; // ahead buffer counted as 100%
++    private int mStallLastPosition = -1;
++    private long mStallLastChange;
++    private final Runnable mStallWatcher = new Runnable() {
++        @Override
++        public void run() {
++            mHandler.postDelayed(this, STALL_CHECK_MS);
++            if (mPlayer == null || mPlayerController == null || !mPlayer.isInPlaybackState()
++                    || mPlayer.isLocalVideo() || mPlayer.isPauseRequested() || mPlayer.isBusy()) {
++                mStallLastPosition = -1;
++                return;
++            }
++            int position = mPlayer.getCurrentPosition();
++            long now = android.os.SystemClock.uptimeMillis();
++            if (position != mStallLastPosition) {
++                mStallLastPosition = position;
++                mStallLastChange = now;
++                return;
++            }
++            if (now - mStallLastChange < STALL_AFTER_MS) return;
++            int duration = mPlayer.getDuration();
++            int ahead = duration > 0 ? (int) ((long) mPlayer.getBufferPosition() * duration / 1000) - position : 0;
++            int percent = Math.max(0, Math.min(99, ahead * 100 / STALL_TARGET_MS));
++            mPlayerController.showBufferingOsd(percent);
++        }
++    };
+     private PlayerController    mPlayerController;
+     private View                mPlayerControllerPlaceholder;
+     private Player              mPlayer;
+@@ -1137,6 +1169,8 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+         }
+         PlayerBrightnessManager.getInstance().restoreBrightness(this);
+         if (mAmbientMode != null) mAmbientMode.update(mPreferences);
++        mHandler.removeCallbacks(mStallWatcher);
++        mHandler.postDelayed(mStallWatcher, STALL_CHECK_MS);
+         if(!mWasInPictureInPicture){
+             mPermissionChecker.checkAndRequestPermission(this);
+             if (!isFinishing() && !isDestroyed()) {
+@@ -1179,6 +1213,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+         super.onPause();
+         if (log.isDebugEnabled()) log.debug("onPause");
+         if (mAmbientMode != null) mAmbientMode.stop();
++        mHandler.removeCallbacks(mStallWatcher);
+ 
+         // Clock (for leanback devices only)
+         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK) || isChromeOS(mContext)) {

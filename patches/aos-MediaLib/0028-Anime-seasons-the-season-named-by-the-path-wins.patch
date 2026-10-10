@@ -1,0 +1,239 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:46:00 +0000
+Subject: [PATCH] Anime seasons: the season named by the path wins
+
+'KonoSuba 2', 'Shingeki no Kyojin Season 3' or a 'Sezon 1' folder name
+the season; absolute episode numbers ('One Piece - 1050') are only
+mapped to TMDb seasons when nothing named it, so an OVA numbered 11 in
+KonoSuba season 1 no longer lands in season 2. Dash numbered episodes
+inside an Anime folder are recognized without a fansub tag.
+---
+ src/com/archos/mediascraper/ShowUtils.java    |  2 +
+ .../preprocess/FolderEpisodeMatcher.java      |  2 +-
+ .../preprocess/FolderEpisodeNaming.java       | 55 +++++++++++++++++--
+ .../preprocess/TvShowSearchInfo.java          | 12 ++++
+ .../themoviedb3/SearchShowParser.java         |  1 +
+ .../archos/mediascraper/xml/ShowScraper4.java |  7 ++-
+ .../preprocess/FolderEpisodeNamingTest.java   | 20 +++++++
+ 7 files changed, 91 insertions(+), 8 deletions(-)
+
+diff --git a/src/com/archos/mediascraper/ShowUtils.java b/src/com/archos/mediascraper/ShowUtils.java
+index b2e1023..31402d1 100644
+--- a/src/com/archos/mediascraper/ShowUtils.java
++++ b/src/com/archos/mediascraper/ShowUtils.java
+@@ -51,6 +51,8 @@ public final class ShowUtils {
+ 
+     public static final String EPNUM = "epnum";
+     public static final String SEASON = "season";
++    /** ReNova: "1" when the season was not named by the path (absolute episode numbers allowed) */
++    public static final String SEASON_GUESSED = "season_guessed";
+     public static final String SHOW = "show";
+     public static final String YEAR = "year";
+     public static final String ORIGIN = "origin";
+diff --git a/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java b/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
+index a8ed50a..99e28ff 100644
+--- a/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
++++ b/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
+@@ -55,7 +55,7 @@ class FolderEpisodeMatcher implements InputMatcher {
+         FolderEpisodeNaming.Result r = FolderEpisodeNaming.parse(file.getPathSegments());
+         if (r == null) return null;
+         if (log.isDebugEnabled()) log.debug("getFileInputMatch: {} -> {}", file, r);
+-        return new TvShowSearchInfo(file, r.title, r.season, r.episode, r.year, null);
++        return new TvShowSearchInfo(file, r.title, r.season, r.episode, r.year, null).setSeasonGuessed(!r.seasonKnown);
+     }
+ 
+     @Override
+diff --git a/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+index 881adea..09bed90 100644
+--- a/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
++++ b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+@@ -38,12 +38,15 @@ public final class FolderEpisodeNaming {
+         public final int season;
+         public final int episode;
+         public final String year;
++        /** false when the season is the default 1, nothing in the path named it */
++        public final boolean seasonKnown;
+ 
+-        Result(String title, int season, int episode, String year) {
++        Result(String title, int season, int episode, String year, boolean seasonKnown) {
+             this.title = title;
+             this.season = season;
+             this.episode = episode;
+             this.year = year;
++            this.seasonKnown = seasonKnown;
+         }
+ 
+         @Override
+@@ -134,7 +137,8 @@ public final class FolderEpisodeNaming {
+         if ((m = DASH_NUMBER.matcher(withoutGroup)).matches()) {
+             String number = m.group(2);
+             boolean plausible = groupTagged || number.startsWith("0")
+-                    || BRACKETS.matcher(withoutGroup.substring(m.end(2))).find();
++                    || BRACKETS.matcher(withoutGroup.substring(m.end(2))).find()
++                    || inAnimeFolder(pathSegments);
+             if (plausible && !number.matches("(?:19|20)\\d{2}")) {
+                 return fromTitle(m.group(1), pathSegments, toInt(number));
+             }
+@@ -171,10 +175,35 @@ public final class FolderEpisodeNaming {
+         if (title.isEmpty()) return null;
+         int season = seasonIn(rawTitle);
+         if (season > 0) title = cleanTitle(removeSeason(rawTitle));
+-        if (season < 0) season = seasonFromFolders(segments);
+         String year = yearIn(rawTitle);
+         if (year != null) title = cleanTitle(removeYear(title));
+-        return title.isEmpty() ? null : new Result(title, season > 0 ? season : 1, episode, year);
++        if (season < 0) {
++            // "KonoSuba 2 - 05": a trailing digit names the season of anime titles
++            int trailing = trailingSeason(title);
++            if (trailing > 0) {
++                season = trailing;
++                title = removeTrailingNumber(title);
++            }
++        }
++        if (season < 0) season = seasonFromFolders(segments);
++        return title.isEmpty() ? null : new Result(title, season > 0 ? season : 1, episode, year, season > 0);
++    }
++
++    // "Kaiju No. 8", "Part 2", "Vol 3": the number belongs to the title, not a season
++    private static final Pattern NOT_A_SEASON_BEFORE = Pattern.compile(
++            "(?i).*\\b(?:no|nr|number|part|pt|cour|vol|volume|chapter|ep|episode|odc|odcinek)\\.?$|.*#$");
++    private static final Pattern TRAILING_DIGIT = Pattern.compile("^(.*\\S)\\s+([2-9])$");
++
++    /** 2..9 when the (clean) title ends with a lone digit naming a season, else -1 */
++    static int trailingSeason(String title) {
++        Matcher m = TRAILING_DIGIT.matcher(title);
++        if (!m.matches() || NOT_A_SEASON_BEFORE.matcher(m.group(1)).matches()) return -1;
++        return toInt(m.group(2));
++    }
++
++    private static String removeTrailingNumber(String title) {
++        Matcher m = TRAILING_DIGIT.matcher(title);
++        return m.matches() ? cleanTitle(m.group(1)) : title;
+     }
+ 
+     private static Result fromFolders(List<String> segments, int season, int episode) {
+@@ -193,8 +222,15 @@ public final class FolderEpisodeNaming {
+             if (season < 0 && folderSeason > 0) season = folderSeason;
+             String year = yearIn(raw);
+             if (year != null) title = cleanTitle(removeYear(title));
++            if (folderSeason < 0) {
++                int trailing = trailingSeason(title);
++                if (trailing > 0) {
++                    title = removeTrailingNumber(title);
++                    if (season < 0) season = trailing;
++                }
++            }
+             if (title.isEmpty() || GENERIC_FOLDERS.contains(title.toLowerCase(Locale.ROOT))) return null;
+-            return new Result(title, season > 0 ? season : 1, episode, year);
++            return new Result(title, season > 0 ? season : 1, episode, year, season > 0);
+         }
+         return null;
+     }
+@@ -204,6 +240,15 @@ public final class FolderEpisodeNaming {
+             Matcher sf = SEASON_FOLDER.matcher(normalize(segments.get(i)));
+             if (sf.matches()) return toInt(sf.group(1));
+         }
++        // the show folder itself: "Shingeki no Kyojin Season 3", "KonoSuba 2"
++        if (segments.size() >= 2) {
++            String parent = normalize(segments.get(segments.size() - 2)).replaceFirst("^(?:\\[[^\\]]*\\]\\s*)+", "");
++            if (!GENERIC_FOLDERS.contains(cleanTitle(parent).toLowerCase(Locale.ROOT))) {
++                int season = seasonIn(parent);
++                if (season > 0) return season;
++                return trailingSeason(cleanTitle(removeYear(parent)));
++            }
++        }
+         return -1;
+     }
+ 
+diff --git a/src/com/archos/mediascraper/preprocess/TvShowSearchInfo.java b/src/com/archos/mediascraper/preprocess/TvShowSearchInfo.java
+index bf99886..400f181 100644
+--- a/src/com/archos/mediascraper/preprocess/TvShowSearchInfo.java
++++ b/src/com/archos/mediascraper/preprocess/TvShowSearchInfo.java
+@@ -41,6 +41,18 @@ public class TvShowSearchInfo extends SearchInfo {
+     private final int mEpisode;
+     private final String mFirstAiredYear;
+     public final String mCountryOfOrigin;
++    // ReNova: the season is the default 1, nothing in the path named it (anime dumps numbered
++    // from the start of the show): only then may an episode number be read as absolute
++    private boolean mSeasonGuessed;
++
++    public boolean isSeasonGuessed() {
++        return mSeasonGuessed;
++    }
++
++    public TvShowSearchInfo setSeasonGuessed(boolean guessed) {
++        mSeasonGuessed = guessed;
++        return this;
++    }
+ 
+     public String getShowName() {
+         return mShowName;
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+index 6f6a5d0..cb71fb9 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+@@ -103,6 +103,7 @@ public class SearchShowParser {
+                 Bundle extra = new Bundle();
+                 extra.putString(ShowUtils.EPNUM, String.valueOf(searchInfo.getEpisode()));
+                 extra.putString(ShowUtils.SEASON, String.valueOf(searchInfo.getSeason()));
++                if (searchInfo.isSeasonGuessed()) extra.putString(ShowUtils.SEASON_GUESSED, "1");
+                 SearchResult result = new SearchResult();
+                 result.setTvShow();
+                 result.setYear((year != null) ? String.valueOf(year) : null);
+diff --git a/src/com/archos/mediascraper/xml/ShowScraper4.java b/src/com/archos/mediascraper/xml/ShowScraper4.java
+index 58d6eec..27e58b7 100644
+--- a/src/com/archos/mediascraper/xml/ShowScraper4.java
++++ b/src/com/archos/mediascraper/xml/ShowScraper4.java
+@@ -363,8 +363,11 @@ public class ShowScraper4 extends BaseScraper2 {
+ 
+         // ReNova: anime dumps number episodes from the start of the show ("One Piece - 1050" is
+         // read as S1E1050) while TMDb splits it into seasons: map the absolute number to TMDb's
+-        // season/episode from the episode counts of its seasons (show info is cached per show)
+-        if (requestedSeason == 1 && requestedEpisode > 10 && season <= 1) {
++        // season/episode from the episode counts of its seasons (show info is cached per show).
++        // Only when nothing named the season: "Sezon 1/Odcinek 11" stays S1E11 (an OVA of
++        // KonoSuba season 1 used to land in season 2)
++        boolean seasonGuessed = "1".equals(result.getExtra().getString(ShowUtils.SEASON_GUESSED, null));
++        if (seasonGuessed && requestedSeason == 1 && requestedEpisode > 10 && season <= 1) {
+             String absShowKey = ShowUtils.cleanUpName(result.getOriginalTitle().toLowerCase()) + "|" + showId + "|" + resultLanguage;
+             ShowIdTvSearchResult showInfo = ShowIdTvSearch.getTvShowResponse(absShowKey + requestCacheSuffix, showId, resultLanguage, adultScrape, requestTmdb);
+             if (showInfo != null && showInfo.status == ScrapeStatus.OKAY && showInfo.tvShow != null && showInfo.tvShow.seasons != null) {
+diff --git a/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java b/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+index 3101e82..ec5b8c4 100644
+--- a/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
++++ b/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+@@ -13,6 +13,7 @@
+ package com.archos.mediascraper.preprocess;
+ 
+ import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
+ import static org.junit.Assert.assertNull;
+ import static org.junit.Assert.assertTrue;
+ 
+@@ -58,6 +59,25 @@ public class FolderEpisodeNamingTest {
+         assertEquals("Naruto S1E1", parse("/Anime/Naruto/Naruto 001.mp4"));
+     }
+ 
++    @Test
++    public void seasonFromTrailingNumberAndFolders() {
++        // KonoSuba season 1 used to land in season 2 (an episode past the first season was read
++        // as an absolute number); the season named by the path always wins
++        assertEquals("Kono Subarashii Sekai ni Shukufuku wo! S2E5",
++                parse("/Anime/Kono Subarashii Sekai ni Shukufuku wo! 2/Kono Subarashii Sekai ni Shukufuku wo! 2 - 05.mkv"));
++        assertEquals("KonoSuba S2E5", parse("/Anime/KonoSuba 2/05.mkv"));
++        assertEquals("KonoSuba S2E5", parse("/Anime/KonoSuba 2/[SubsPlease] KonoSuba - 05.mkv"));
++        assertEquals("KonoSuba S1E11", parse("/Anime/KonoSuba/Sezon 1/Odcinek 11.mp4"));
++        assertEquals("Kaiju No. 8 S1E5", parse("/Anime/Kaiju No. 8/Kaiju No. 8 - 05.mkv"));
++        assertEquals("One Piece S1E1050", parse("/Anime/One Piece/One Piece - 1050.mp4"));
++    }
++
++    @Test
++    public void seasonKnownOnlyWhenThePathNamesIt() {
++        assertTrue(FolderEpisodeNaming.parse(Arrays.asList("Anime", "KonoSuba", "Sezon 1", "Odcinek 11.mp4")).seasonKnown);
++        assertFalse(FolderEpisodeNaming.parse(Arrays.asList("Anime", "One Piece", "One Piece - 1050.mp4")).seasonKnown);
++    }
++
+     @Test
+     public void moviePartsAndNumberedTitlesStayMovies() {
+         assertEquals("null", parse("/Filmy/Kill Bill Vol 01.mkv"));

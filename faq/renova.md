@@ -26,8 +26,8 @@ no `.nfo`, no `.jpg`, no hidden resume files. Existing `.nfo` files on your shar
 - `.nfo` files next to your videos are read (Kodi format) and win over online search.
 
 ## My NAS shows up twice (by IP and by name)
-ReNova merges them in the network list and refuses to index the same share a second time under
-its other name. If your library already has it twice, ReNova tells you once at start which
+Both stay in the network list (the IP one shows the server name next to it), but ReNova refuses
+to index the same share a second time under its other name. If your library already has it twice, ReNova tells you once at start which
 folders to remove from the indexed folders.
 
 ## My NAS was asleep and the library vanished?
@@ -86,8 +86,8 @@ Tylko na urządzeniu, w prywatnej pamięci ReNova. Nic nie trafia obok filmów: 
 - Pliki `.nfo` obok filmów są czytane (format Kodi) i mają pierwszeństwo przed wyszukiwaniem online.
 
 ## Mój NAS widać dwa razy (po IP i po nazwie)
-ReNova scala je na liście sieci i nie pozwala zaindeksować tego samego udziału drugi raz pod
-inną nazwą. Jeśli biblioteka już ma go podwójnie, przy starcie ReNova raz podpowie, który folder
+Oba wpisy zostają na liście sieci (przy IP widać nazwę serwera), ale ReNova nie pozwala
+zaindeksować tego samego udziału drugi raz pod inną nazwą. Jeśli biblioteka już ma go podwójnie, przy starcie ReNova raz podpowie, który folder
 usunąć z folderów indeksowanych.
 
 ## NAS spał i biblioteka zniknęła?

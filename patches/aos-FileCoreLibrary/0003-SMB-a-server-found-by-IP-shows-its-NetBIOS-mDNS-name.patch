@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:44:22 +0000
+Subject: [PATCH] SMB: a server found by IP shows its NetBIOS/mDNS name next to
+ the IP
+
+---
+ .../archos/filecorelibrary/samba/SambaDiscovery.java  | 11 +++++++++++
+ src/com/archos/filecorelibrary/samba/Share.java       |  3 +++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/src/com/archos/filecorelibrary/samba/SambaDiscovery.java b/src/com/archos/filecorelibrary/samba/SambaDiscovery.java
+index 8d16198..b087a9c 100644
+--- a/src/com/archos/filecorelibrary/samba/SambaDiscovery.java
++++ b/src/com/archos/filecorelibrary/samba/SambaDiscovery.java
+@@ -147,6 +147,17 @@ public class SambaDiscovery implements InternalDiscoveryListener {
+         return shareNameResolver.get(shareName.toUpperCase(Locale.ROOT));
+     }
+ 
++    /** ReNova: name of the server at this IP as learnt by NetBIOS/mDNS discovery, or null. */
++    public static String getShareNameFromIp(String ip) {
++        if (ip == null) return null;
++        synchronized (shareNameResolver) { // discovery threads update it while the UI reads
++            for (java.util.Map.Entry<String, String> entry : shareNameResolver.entrySet()) {
++                if (ip.equals(entry.getValue()) && !ip.equals(entry.getKey())) return entry.getKey();
++            }
++        }
++        return null;
++    }
++
+     public static void registerShareNameIP(String shareName, String shareIp) {
+         if (shareIp != null && shareName != null) shareNameResolver.put(shareName.toUpperCase(Locale.ROOT), shareIp);
+     }
+diff --git a/src/com/archos/filecorelibrary/samba/Share.java b/src/com/archos/filecorelibrary/samba/Share.java
+index 137c66a..2670d36 100644
+--- a/src/com/archos/filecorelibrary/samba/Share.java
++++ b/src/com/archos/filecorelibrary/samba/Share.java
+@@ -62,6 +62,9 @@ public class Share implements Parcelable {
+             if (name.endsWith(suffix)) {
+                 name = name.substring(0, name.length()-suffix.length());
+             }
++            // ReNova: the same server found by IP (TCP discovery) shows its name too
++            String serverName = SambaDiscovery.getShareNameFromIp(name);
++            if (serverName != null) name = name + " (" + serverName + ")";
+         }
+         return name;
+     }
