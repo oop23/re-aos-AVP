@@ -38,10 +38,12 @@ jobs:
       run: |
         cp nova/AVP/Makefile nova/Makefile
         nova/AVP/script/apply-patches.sh nova
-    - name: unit tests (read-only sources)
+    - name: unit tests (fork features)
       run: |
         cd nova/Video
-        ./gradlew --no-daemon :FileCoreLibrary:testDebugUnitTest --tests '*SourceAccessPolicyTest'
+        ./gradlew --no-daemon \
+          :FileCoreLibrary:testDebugUnitTest --tests '*SourceAccessPolicyTest' \
+          :MediaLib:testDebugUnitTest --tests '*FolderEpisodeNamingTest' --tests '*MetadataOverridesTest'
     - name: build
       run: |
         cd nova/Video
@@ -54,4 +56,7 @@ jobs:
       if: failure()
       with:
         name: test-reports
-        path: nova/FileCoreLibrary/build/reports/tests/
+        path: |
+          nova/FileCoreLibrary/build/reports/tests/
+          nova/MediaLib/build/reports/tests/
+          nova/Video/build/reports/lint-results-*.html

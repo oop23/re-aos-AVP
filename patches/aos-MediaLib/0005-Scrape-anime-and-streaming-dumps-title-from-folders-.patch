@@ -1,0 +1,547 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:08:38 +0000
+Subject: [PATCH] Scrape anime and streaming dumps: title from folders, fansub
+ and polish markers
+
+Files carrying only numbers (Frieren/S01E05.mkv, Frieren/Sezon 2/Odcinek
+05.mp4, Frieren/05.mkv) were searched as movies named after the number.
+A new FolderEpisodeMatcher, run after the TV show matchers and before
+the movie ones, takes the show title from the folders (skipping season
+folders, reading the season from them or from 'S2'/'2nd Season' in the
+show folder) and understands fansub 'Title - 05 [1080p]' names and the
+polish 'odc.'/'Odcinek'/'Sezon' markers used by shinden-like dumps.
+Movies (300, 1917, 'Title - 2', 'Title - 1977') and generic folders
+(Anime, Filmy, Downloads...) never match.
+
+Adds unit tests for this naming and for metadata overrides.
+---
+ .../preprocess/FolderEpisodeMatcher.java      |  65 +++++
+ .../preprocess/FolderEpisodeNaming.java       | 228 ++++++++++++++++++
+ .../preprocess/SearchPreprocessor.java        |   2 +
+ .../mediascraper/MetadataOverridesTest.java   |  98 ++++++++
+ .../preprocess/FolderEpisodeNamingTest.java   |  90 +++++++
+ 5 files changed, 483 insertions(+)
+ create mode 100644 src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
+ create mode 100644 src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+ create mode 100644 test/java/com/archos/mediascraper/MetadataOverridesTest.java
+ create mode 100644 test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+
+diff --git a/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java b/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
+new file mode 100644
+index 0000000..a8ed50a
+--- /dev/null
++++ b/src/com/archos/mediascraper/preprocess/FolderEpisodeMatcher.java
+@@ -0,0 +1,65 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.preprocess;
++
++import android.net.Uri;
++
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++/**
++ * Episodes named the anime / streaming dump way, see {@link FolderEpisodeNaming}: runs after the
++ * regular TV show matchers and before the movie ones, so a file like {@code Frieren/05.mkv} or
++ * {@code Frieren/S01E05.mkv} is no longer searched as a movie called "05" or "S01E05".
++ */
++class FolderEpisodeMatcher implements InputMatcher {
++    private static final Logger log = LoggerFactory.getLogger(FolderEpisodeMatcher.class);
++
++    private static final FolderEpisodeMatcher INSTANCE = new FolderEpisodeMatcher();
++
++    public static FolderEpisodeMatcher instance() {
++        return INSTANCE;
++    }
++
++    private FolderEpisodeMatcher() {
++        // singleton
++    }
++
++    @Override
++    public boolean matchesUserInput(String userInput) {
++        return false;
++    }
++
++    @Override
++    public boolean matchesFileInput(Uri fileInput, Uri simplifiedUri) {
++        return fileInput != null && FolderEpisodeNaming.parse(fileInput.getPathSegments()) != null;
++    }
++
++    @Override
++    public SearchInfo getUserInputMatch(String userInput, Uri file) {
++        return null;
++    }
++
++    @Override
++    public SearchInfo getFileInputMatch(Uri file, Uri simplifiedUri) {
++        FolderEpisodeNaming.Result r = FolderEpisodeNaming.parse(file.getPathSegments());
++        if (r == null) return null;
++        if (log.isDebugEnabled()) log.debug("getFileInputMatch: {} -> {}", file, r);
++        return new TvShowSearchInfo(file, r.title, r.season, r.episode, r.year, null);
++    }
++
++    @Override
++    public String getMatcherName() {
++        return "FolderEpisode";
++    }
++}
+diff --git a/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+new file mode 100644
+index 0000000..7aff306
+--- /dev/null
++++ b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+@@ -0,0 +1,228 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.preprocess;
++
++import java.util.List;
++import java.util.Locale;
++import java.util.Set;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/**
++ * Episode naming the regular TV show patterns miss, typical of anime and of dumps from streaming
++ * sites (shinden & co) or fansub groups:
++ * <ul>
++ * <li>no show title in the file name: {@code Frieren/S01E05.mkv}, {@code Frieren/Sezon 2/Odcinek 05.mp4},
++ *     {@code Frieren/Season 2/E05.mkv}, {@code Frieren/05.mkv}: the title comes from the folders</li>
++ * <li>fansub style: {@code [SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv}</li>
++ * <li>polish markers: {@code Frieren odc. 5.mp4}, {@code Frieren_Odcinek_05.mp4}</li>
++ * </ul>
++ * Pure Java on purpose (no Android types) so it is unit testable on the JVM.
++ */
++public final class FolderEpisodeNaming {
++
++    public static final class Result {
++        public final String title;
++        public final int season;
++        public final int episode;
++        public final String year;
++
++        Result(String title, int season, int episode, String year) {
++            this.title = title;
++            this.season = season;
++            this.episode = episode;
++            this.year = year;
++        }
++
++        @Override
++        public String toString() {
++            return title + " S" + season + "E" + episode + (year != null ? " (" + year + ")" : "");
++        }
++    }
++
++    private FolderEpisodeNaming() {}
++
++    private static final String SEASON_WORD = "(?:s|season|seas|sezon|saison|staffel|temporada)";
++    private static final String EPISODE_WORD = "(?:e|ep|episode|odc|odcinek|episodio|folge)";
++    private static final String SEP = "[\\s._\\-]*";
++
++    // "S01E05", "Season 1 Episode 5", "Sezon 2 Odcinek 05" with nothing before it
++    private static final Pattern SEASON_EPISODE_ONLY = Pattern.compile(
++            "(?i)^" + SEASON_WORD + SEP + "(\\d{1,2})" + SEP + EPISODE_WORD + "\\.?" + SEP + "(\\d{1,4})(?!\\d).*");
++    // "E05", "Ep 5", "Odcinek 05", "odc. 5" with nothing before it
++    private static final Pattern EPISODE_ONLY = Pattern.compile(
++            "(?i)^" + EPISODE_WORD + "\\.?" + SEP + "(\\d{1,4})(?!\\d).*");
++    // "05", "012", "05v2" (zero padded, otherwise movies like "300" or "9" would match)
++    private static final Pattern BARE_NUMBER = Pattern.compile("^(0\\d{1,3})(?:v\\d)?$");
++    // "Title - 05", "Title - 05v2 (1080p)", "Title - 1050"
++    private static final Pattern DASH_NUMBER = Pattern.compile(
++            "^(.+?)\\s+-\\s+(\\d{1,4})(?:v\\d)?(?:\\s+.*)?$");
++    // "Title odc. 5", "Title Odcinek 05", "Title Episode 5", "Title Ep05"
++    private static final Pattern TITLE_EPISODE_WORD = Pattern.compile(
++            "(?i)^(.+?)" + "[\\s._\\-]+" + "(?:ep|episode|odc|odcinek|episodio|folge)" + "\\.?" + SEP + "(\\d{1,4})(?!\\d).*");
++
++    // a season marker inside a title: "Frieren S2", "Shingeki no Kyojin Season 3", "Sezon 2"
++    private static final Pattern SEASON_IN_TITLE = Pattern.compile(
++            "(?i)(?:^|\\s)" + SEASON_WORD + SEP + "(\\d{1,2})(?:\\s|$)");
++    // "2nd Season", "3rd season"
++    private static final Pattern ORDINAL_SEASON_IN_TITLE = Pattern.compile(
++            "(?i)(?:^|\\s)(\\d{1,2})(?:st|nd|rd|th)\\s+season(?:\\s|$)");
++    // a folder that is only a season: "Season 2", "S02", "Sezon 2 [PL]"
++    private static final Pattern SEASON_FOLDER = Pattern.compile(
++            "(?i)^" + SEASON_WORD + SEP + "(\\d{1,2})(?:\\s.*)?$");
++
++    private static final Pattern BRACKETS = Pattern.compile("[\\[({<][^\\])}>]*[\\])}>]");
++    private static final Pattern YEAR = Pattern.compile("(?:^|\\s)((?:19|20)\\d{2})(?:\\s|$)");
++    private static final Pattern JUNK = Pattern.compile(
++            "(?i)\\b(?:480p|576p|720p|1080p|2160p|4k|uhd|hdr|hevc|x264|x265|h264|h265|aac|flac|web(?:-?dl|rip)?|bluray|bdrip|dvdrip|"
++                    + "multi|dual(?:audio)?|pl|eng|jap|jpn|napisy|lektor|dubbing|sub|subs|subbed|dub|dubbed)\\b");
++
++    // folders that never name a show
++    private static final Set<String> GENERIC_FOLDERS = Set.of(
++            "anime", "animes", "seriale", "serial", "series", "serie", "tv", "tv shows", "tvshows", "shows",
++            "download", "downloads", "pobrane", "video", "videos", "wideo", "filmy", "movies", "films", "bajki",
++            "media", "multimedia", "nowe", "new", "dump", "dumps", "shinden", "torrents", "public", "share",
++            "volume1", "storage", "emulated", "0", "sdcard", "mnt", "usb", "nas", "home");
++
++    /**
++     * @param pathSegments path segments of the video, the last one being the file name
++     * @return the parsed episode, or null when this naming does not apply
++     */
++    public static Result parse(List<String> pathSegments) {
++        if (pathSegments == null || pathSegments.isEmpty()) return null;
++        String fileName = stripExtension(pathSegments.get(pathSegments.size() - 1));
++        String name = normalize(fileName);
++        String withoutGroup = name.replaceFirst("^(?:\\[[^\\]]*\\]\\s*)+", "").trim();
++
++        Matcher m;
++        // 1. no title in the file: take it from the folders
++        if ((m = SEASON_EPISODE_ONLY.matcher(withoutGroup)).matches()) {
++            return fromFolders(pathSegments, toInt(m.group(1)), toInt(m.group(2)));
++        }
++        if ((m = EPISODE_ONLY.matcher(withoutGroup)).matches()) {
++            return fromFolders(pathSegments, -1, toInt(m.group(1)));
++        }
++        String bare = BRACKETS.matcher(withoutGroup).replaceAll(" ").trim();
++        if ((m = BARE_NUMBER.matcher(bare)).matches()) {
++            return fromFolders(pathSegments, -1, toInt(m.group(1)));
++        }
++        // 2. title in the file with an episode marker the generic patterns do not know
++        boolean groupTagged = !withoutGroup.equals(name);
++        if ((m = DASH_NUMBER.matcher(withoutGroup)).matches()) {
++            String number = m.group(2);
++            boolean plausible = groupTagged || number.startsWith("0")
++                    || BRACKETS.matcher(withoutGroup.substring(m.end(2))).find();
++            if (plausible && !number.matches("(?:19|20)\\d{2}")) {
++                return fromTitle(m.group(1), pathSegments, toInt(number));
++            }
++        }
++        if ((m = TITLE_EPISODE_WORD.matcher(withoutGroup)).matches()) {
++            return fromTitle(m.group(1), pathSegments, toInt(m.group(2)));
++        }
++        return null;
++    }
++
++    private static Result fromTitle(String rawTitle, List<String> segments, int episode) {
++        String title = cleanTitle(rawTitle);
++        if (title.isEmpty()) return null;
++        int season = seasonIn(rawTitle);
++        if (season > 0) title = cleanTitle(removeSeason(rawTitle));
++        if (season < 0) season = seasonFromFolders(segments);
++        String year = yearIn(rawTitle);
++        if (year != null) title = cleanTitle(removeYear(title));
++        return title.isEmpty() ? null : new Result(title, season > 0 ? season : 1, episode, year);
++    }
++
++    private static Result fromFolders(List<String> segments, int season, int episode) {
++        // walk up: skip season folders (remember their number), stop at the first real folder
++        for (int i = segments.size() - 2; i >= 0 && i >= segments.size() - 4; i--) {
++            String folder = normalize(segments.get(i));
++            Matcher sf = SEASON_FOLDER.matcher(folder);
++            if (sf.matches()) {
++                if (season < 0) season = toInt(sf.group(1));
++                continue;
++            }
++            String raw = folder.replaceFirst("^(?:\\[[^\\]]*\\]\\s*)+", "");
++            if (GENERIC_FOLDERS.contains(cleanTitle(raw).toLowerCase(Locale.ROOT))) return null;
++            int folderSeason = seasonIn(raw);
++            String title = cleanTitle(folderSeason > 0 ? removeSeason(raw) : raw);
++            if (season < 0 && folderSeason > 0) season = folderSeason;
++            String year = yearIn(raw);
++            if (year != null) title = cleanTitle(removeYear(title));
++            if (title.isEmpty() || GENERIC_FOLDERS.contains(title.toLowerCase(Locale.ROOT))) return null;
++            return new Result(title, season > 0 ? season : 1, episode, year);
++        }
++        return null;
++    }
++
++    private static int seasonFromFolders(List<String> segments) {
++        for (int i = segments.size() - 2; i >= 0 && i >= segments.size() - 3; i--) {
++            Matcher sf = SEASON_FOLDER.matcher(normalize(segments.get(i)));
++            if (sf.matches()) return toInt(sf.group(1));
++        }
++        return -1;
++    }
++
++    private static int seasonIn(String title) {
++        String t = normalize(title);
++        Matcher m = SEASON_IN_TITLE.matcher(t);
++        if (m.find()) return toInt(m.group(1));
++        m = ORDINAL_SEASON_IN_TITLE.matcher(t);
++        if (m.find()) return toInt(m.group(1));
++        return -1;
++    }
++
++    private static String removeSeason(String title) {
++        String t = normalize(title);
++        t = SEASON_IN_TITLE.matcher(t).replaceAll(" ");
++        t = ORDINAL_SEASON_IN_TITLE.matcher(t).replaceAll(" ");
++        return t;
++    }
++
++    private static String yearIn(String title) {
++        Matcher m = YEAR.matcher(normalize(title).replaceAll("[()\\[\\]]", " "));
++        return m.find() ? m.group(1) : null;
++    }
++
++    private static String removeYear(String title) {
++        return YEAR.matcher(title).replaceAll(" ");
++    }
++
++    static String cleanTitle(String raw) {
++        String t = normalize(raw);
++        t = BRACKETS.matcher(t).replaceAll(" ");
++        t = JUNK.matcher(t).replaceAll(" ");
++        t = t.replaceAll("[\\s\\-]+$", "").replaceAll("^[\\s\\-]+", "");
++        return t.replaceAll("\\s+", " ").trim();
++    }
++
++    private static String normalize(String s) {
++        // dots and underscores are word separators in release names, keep "S.W.A.T"-like acronyms
++        // out of scope: anime/dump names rarely use them
++        return s.replace('_', ' ').replaceAll("(?<=\\S)\\.(?=\\S)", " ").replaceAll("\\s+", " ").trim();
++    }
++
++    private static String stripExtension(String fileName) {
++        int dot = fileName.lastIndexOf('.');
++        if (dot > 0 && fileName.length() - dot <= 5) return fileName.substring(0, dot);
++        return fileName;
++    }
++
++    private static int toInt(String s) {
++        try {
++            return Integer.parseInt(s);
++        } catch (NumberFormatException e) {
++            return -1;
++        }
++    }
++}
+diff --git a/src/com/archos/mediascraper/preprocess/SearchPreprocessor.java b/src/com/archos/mediascraper/preprocess/SearchPreprocessor.java
+index c009efe..449c63d 100644
+--- a/src/com/archos/mediascraper/preprocess/SearchPreprocessor.java
++++ b/src/com/archos/mediascraper/preprocess/SearchPreprocessor.java
+@@ -45,6 +45,8 @@ public class SearchPreprocessor {
+         PARSERS.add(TvShowMatcher.instance());
+         PARSERS.add(TvShowFolderMatcher.instance());
+         PARSERS.add(TvShowPathMatcher.instance());
++        // anime / streaming dumps: title from the folders, fansub and polish episode markers
++        PARSERS.add(FolderEpisodeMatcher.instance());
+         // then movies
+         PARSERS.add(MovieVerbatimMatcher.instance());
+         PARSERS.add(MovieDVDMatcher.instance());
+diff --git a/test/java/com/archos/mediascraper/MetadataOverridesTest.java b/test/java/com/archos/mediascraper/MetadataOverridesTest.java
+new file mode 100644
+index 0000000..be3792e
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/MetadataOverridesTest.java
+@@ -0,0 +1,98 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import android.content.Context;
++
++import androidx.test.core.app.ApplicationProvider;
++
++import org.json.JSONObject;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++import java.util.Calendar;
++import java.util.TimeZone;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 33)
++public class MetadataOverridesTest {
++
++    private Context mContext;
++
++    @Before
++    public void setUp() {
++        mContext = ApplicationProvider.getApplicationContext();
++        mContext.getSharedPreferences("metadata_overrides", Context.MODE_PRIVATE).edit().clear().commit();
++    }
++
++    @Test
++    public void showEditsWinOverScrapedData() throws Exception {
++        JSONObject edits = new JSONObject()
++                .put(MetadataOverrides.TITLE, "Frieren: Beyond Journey's End")
++                .put(MetadataOverrides.PLOT, "my plot")
++                .put(MetadataOverrides.RATING, 9.5)
++                .put(MetadataOverrides.YEAR, 2023);
++        mContext.getSharedPreferences("metadata_overrides", Context.MODE_PRIVATE).edit()
++                .putString(MetadataOverrides.showKey(209867), edits.toString()).commit();
++
++        ShowTags scraped = new ShowTags();
++        scraped.setOnlineId(209867);
++        scraped.setTitle("Sousou no Frieren");
++        scraped.setPlot("scraped plot");
++        scraped.setRating(7f);
++
++        MetadataOverrides.applyTo(mContext, scraped);
++
++        assertEquals("Frieren: Beyond Journey's End", scraped.getTitle());
++        assertEquals("my plot", scraped.getPlot());
++        assertEquals(9.5f, scraped.getRating(), 0.001f);
++        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
++        c.setTime(scraped.getPremiered());
++        assertEquals(2023, c.get(Calendar.YEAR));
++    }
++
++    @Test
++    public void otherShowsAreUntouched() {
++        ShowTags other = new ShowTags();
++        other.setOnlineId(1);
++        other.setTitle("Other");
++        MetadataOverrides.applyTo(mContext, other);
++        assertEquals("Other", other.getTitle());
++    }
++
++    @Test
++    public void clearForgetsEdits() throws Exception {
++        String key = MetadataOverrides.movieKey("smb://nas/Filmy/a.mkv");
++        mContext.getSharedPreferences("metadata_overrides", Context.MODE_PRIVATE).edit()
++                .putString(key, new JSONObject().put(MetadataOverrides.TITLE, "x").toString()).commit();
++        assertTrue(MetadataOverrides.has(mContext, key));
++        MetadataOverrides.clear(mContext, key);
++        assertFalse(MetadataOverrides.has(mContext, key));
++    }
++
++    @Test
++    public void januaryFirstIsUtcMidnight() {
++        Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
++        c.setTimeInMillis(MetadataOverrides.januaryFirst(1999));
++        assertEquals(1999, c.get(Calendar.YEAR));
++        assertEquals(Calendar.JANUARY, c.get(Calendar.MONTH));
++        assertEquals(1, c.get(Calendar.DAY_OF_MONTH));
++    }
++}
+diff --git a/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java b/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+new file mode 100644
+index 0000000..c77ae8b
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+@@ -0,0 +1,90 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.preprocess;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import android.net.Uri;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.List;
++
++/**
++ * Anime and streaming dump naming: title from the folders when the file only carries numbers,
++ * fansub "Title - 05" and polish "odc./Odcinek/Sezon" markers. Movies must never match.
++ */
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 33)
++public class FolderEpisodeNamingTest {
++
++    private static String parse(String path) {
++        List<String> segments = new ArrayList<>(Arrays.asList(path.replaceFirst("^/", "").split("/")));
++        return String.valueOf(FolderEpisodeNaming.parse(segments));
++    }
++
++    @Test
++    public void titleFromFolderWhenFileHasOnlyNumbers() {
++        assertEquals("Frieren S1E5", parse("/Anime/Frieren/S01E05.mkv"));
++        assertEquals("Frieren S2E5", parse("/Anime/Frieren/Sezon 2/Odcinek 05.mp4"));
++        assertEquals("Shingeki no Kyojin S3E12", parse("/Anime/Shingeki no Kyojin/Season 3/E12.mkv"));
++        assertEquals("Frieren S1E5", parse("/Anime/Frieren/05.mkv"));
++        assertEquals("Frieren S1E5 (2023)", parse("/Anime/Frieren (2023)/05.mkv"));
++        assertEquals("Breaking Bad S1E1", parse("/Seriale/Breaking Bad/Season 1/Ep 1.mkv"));
++    }
++
++    @Test
++    public void seasonFromFolderName() {
++        assertEquals("Kimetsu no Yaiba S2E3", parse("/Anime/Kimetsu no Yaiba S2/Odcinek 03.mp4"));
++        assertEquals("Spy x Family S2E7", parse("/Anime/Spy x Family 2nd Season/07.mkv"));
++        assertEquals("Frieren S2E3", parse("/Anime/Frieren/Sezon 2/Frieren odc 3.mp4"));
++    }
++
++    @Test
++    public void fansubAndDumpNames() {
++        assertEquals("Sousou no Frieren S1E5", parse("/Anime/[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv"));
++        assertEquals("Sousou no Frieren S1E5", parse("/Anime/Sousou no Frieren - 05v2 [1080p].mkv"));
++        assertEquals("One Piece S1E1050", parse("/Anime/[Shinden] One Piece - 1050.mp4"));
++        assertEquals("Frieren S1E5", parse("/dumps/Frieren odc. 5.mp4"));
++        assertEquals("Frieren S1E5", parse("/dumps/Frieren_Odcinek_05_[PL].mp4"));
++        assertEquals("Kimetsu no Yaiba S2E3", parse("/Anime/[Erai-raws] Kimetsu no Yaiba Season 2 - 03 [1080p].mkv"));
++    }
++
++    @Test
++    public void moviesAndGenericFoldersDoNotMatch() {
++        assertEquals("null", parse("/Anime/S01E05.mkv"));
++        assertEquals("null", parse("/Filmy/300.mkv"));
++        assertEquals("null", parse("/Filmy/1917.mkv"));
++        assertEquals("null", parse("/Filmy/Mission Impossible - 2.mkv"));
++        assertEquals("null", parse("/Movies/Star Wars - 1977.mkv"));
++        assertNull(FolderEpisodeNaming.parse(new ArrayList<>()));
++    }
++
++    @Test
++    public void preprocessorUsesFolderTitleInsteadOfSearchingAMovie() {
++        SearchInfo info = SearchPreprocessor.instance().parseFileBased(
++                Uri.parse("smb://nas/video/Anime/Frieren/Sezon 2/Odcinek 05.mp4"), null);
++        assertTrue(info instanceof TvShowSearchInfo);
++        TvShowSearchInfo tv = (TvShowSearchInfo) info;
++        assertEquals("Frieren", tv.getShowName());
++        assertEquals(2, tv.getSeason());
++        assertEquals(5, tv.getEpisode());
++    }
++}
