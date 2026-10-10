@@ -1,0 +1,181 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:50:42 +0000
+Subject: [PATCH] Anime get AniList as a second data source
+
+For japanese animation (TMDb animation genre, japanese origin) the show
+is looked up on AniList and checked against its TMDb titles: AniList's
+description replaces a TMDb plot that is not in the user's language,
+its score fills a missing rating, and the show is credited to AniList
+(logo and links on details) even outside an Anime folder.
+---
+ .../mediascraper/anilist/AniListClient.java   | 55 ++++++++++++++++++-
+ .../themoviedb3/ShowIdParser.java             | 41 ++++++++++++++
+ .../anilist/AniListClientTest.java            | 13 +++++
+ 3 files changed, 108 insertions(+), 1 deletion(-)
+
+diff --git a/src/com/archos/mediascraper/anilist/AniListClient.java b/src/com/archos/mediascraper/anilist/AniListClient.java
+index d377aa2..9a2b8fe 100644
+--- a/src/com/archos/mediascraper/anilist/AniListClient.java
++++ b/src/com/archos/mediascraper/anilist/AniListClient.java
+@@ -50,11 +50,29 @@ public final class AniListClient {
+     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
+     private static final String QUERY =
+             "query ($search: String) { Page(perPage: 3) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) {"
+-                    + " id idMal title { romaji english native } synonyms seasonYear format } } }";
++                    + " id idMal title { romaji english native } synonyms seasonYear format description(asHtml: false) averageScore } } }";
+ 
+     private static final LruCache<String, List<String>> sCache = new LruCache<>(200);
+     // AniList and MyAnimeList ids of the best match, for links on the details screens
+     private static final LruCache<String, int[]> sIdCache = new LruCache<>(200);
++    private static final LruCache<String, Media> sMediaCache = new LruCache<>(200);
++
++    /** What AniList knows about the best match of a query. */
++    public static final class Media {
++        public final int id;
++        public final int idMal;
++        public final List<String> titles;
++        public final String description; // plain text, null when none
++        public final int averageScore;   // 0..100, 0 when unknown
++
++        Media(int id, int idMal, List<String> titles, String description, int averageScore) {
++            this.id = id;
++            this.idMal = idMal;
++            this.titles = titles;
++            this.description = description;
++            this.averageScore = averageScore;
++        }
++    }
+     private static volatile OkHttpClient sClient;
+ 
+     private AniListClient() {}
+@@ -99,6 +117,8 @@ public final class AniListClient {
+                     String json = response.body().string();
+                     titles = parseTitles(json);
+                     sIdCache.put(key, parseIds(json));
++                    Media media = parseMedia(json);
++                    if (media != null) sMediaCache.put(key, media);
+                 } else {
+                     log.warn("alternateTitles: AniList answered {} for {}", response.code(), query);
+                     return titles; // do not cache transient failures (rate limit, outage)
+@@ -123,6 +143,39 @@ public final class AniListClient {
+         return ids != null ? ids : new int[] { 0, 0 };
+     }
+ 
++    /**
++     * The best AniList match of {@code query} with its description and score, null when nothing
++     * matched or AniList is unreachable. Blocking: call it from a scraper thread.
++     */
++    public static Media media(String query) {
++        if (query == null || query.trim().length() < 2) return null;
++        alternateTitles(query); // fills the caches
++        return sMediaCache.get(query.trim().toLowerCase(Locale.ROOT));
++    }
++
++    /** Parses the best match of an AniList answer. Package visible for tests. */
++    static Media parseMedia(String json) throws JSONException {
++        JSONObject root = new JSONObject(json);
++        JSONObject data = root.optJSONObject("data");
++        JSONObject page = data == null ? null : data.optJSONObject("Page");
++        JSONArray media = page == null ? null : page.optJSONArray("media");
++        if (media == null || media.length() == 0) return null;
++        JSONObject best = media.getJSONObject(0);
++        String description = best.isNull("description") ? null : cleanDescription(best.optString("description", null));
++        return new Media(best.optInt("id", 0), best.optInt("idMal", 0), parseTitles(json),
++                description, best.optInt("averageScore", 0));
++    }
++
++    /** AniList descriptions carry html line breaks, italics and a "(Source: ...)" credit. */
++    static String cleanDescription(String description) {
++        if (description == null) return null;
++        String d = description.replaceAll("(?i)<br\\s*/?>", "\n").replaceAll("<[^>]+>", "")
++                .replace("&quot;", "\"").replace("&amp;", "&").replace("&#039;", "'").replace("&lt;", "<").replace("&gt;", ">");
++        d = d.replaceAll("(?is)\\(\\s*source:[^)]*\\)\\s*$", "").replaceAll("(?is)\\[\\s*written by[^\\]]*\\]\\s*$", "");
++        d = d.replaceAll("[ \\t]+", " ").replaceAll("\\n{3,}", "\n\n").trim();
++        return d.isEmpty() ? null : d;
++    }
++
+     /** {AniList id, MyAnimeList id} of the best match, 0 when unknown. Package visible for tests. */
+     static int[] parseIds(String json) throws JSONException {
+         JSONObject root = new JSONObject(json);
+diff --git a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+index 649e7e7..7eed064 100644
+--- a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+@@ -112,6 +112,8 @@ public class ShowIdParser {
+             result.addDefaultBackdropTMDB(mContext, serie.backdrop_path);
+         } else if (log.isDebugEnabled()) log.debug("getResult: no backdrop_path for {}", serie.id);
+ 
++        enrichAnimeFromAniList(serie, result);
++
+         if (serie.credits != null) {
+             if (serie.credits.guest_stars != null)
+                 for (CastMember guestStar : serie.credits.guest_stars)
+@@ -130,6 +132,45 @@ public class ShowIdParser {
+         return result;
+     }
+ 
++    private static final int ANIMATION_GENRE_ID = 16;
++
++    /** Japanese animation: TMDb animation genre and a japanese origin. */
++    static boolean isAnime(TvShow serie) {
++        boolean animation = false;
++        if (serie.genres != null) for (Genre g : serie.genres) if (g != null && g.id != null && g.id == ANIMATION_GENRE_ID) animation = true;
++        boolean japanese = "ja".equals(serie.original_language)
++                || (serie.origin_country != null && serie.origin_country.contains("JP"));
++        return animation && japanese;
++    }
++
++    /**
++     * ReNova: anime get AniList as a second source. TMDb often has no text in the user's language
++     * (or a poor one) for anime: AniList's description replaces an english or missing TMDb plot, its
++     * score fills a missing rating, and the show is credited to AniList on the details screens.
++     */
++    private static void enrichAnimeFromAniList(TvShow serie, ShowTags result) {
++        if (!isAnime(serie)) return;
++        com.archos.mediascraper.anilist.AniListClient.Media media = null;
++        for (String query : new String[] { serie.original_name, serie.name }) {
++            if (query == null) continue;
++            com.archos.mediascraper.anilist.AniListClient.Media candidate = com.archos.mediascraper.anilist.AniListClient.media(query);
++            if (candidate != null && AnimeTitleMatch.matches(serie.name, serie.original_name, candidate.titles)) {
++                media = candidate;
++                break;
++            }
++        }
++        if (media == null) return;
++        com.archos.mediascraper.DataSources.markAniListShow(serie.id, media.id, media.idMal);
++        boolean localizedPlot = serie.overview != null && !serie.overview.trim().isEmpty();
++        if (!localizedPlot && media.description != null) {
++            if (log.isDebugEnabled()) log.debug("enrichAnimeFromAniList: {} plot from AniList", serie.name);
++            result.setPlot(media.description);
++        }
++        if (result.getRating() <= 0 && media.averageScore > 0) {
++            result.setRating(Math.round(media.averageScore) / 10.0f);
++        }
++    }
++
+     // many genres are not translated on tmdb and localized request is returned in the local language making one to
+     // one mapping difficult without changing all db structure --> revert to show trick which is the only way to cope
+     // with fallback search in en is perfomed when localized search returns nothing
+diff --git a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+index 8e9dc1c..fdddca0 100644
+--- a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
++++ b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+@@ -57,4 +57,17 @@ public class AniListClientTest {
+         assertArrayEquals(new int[] { 154587, 52991 }, AniListClient.parseIds(json));
+         assertArrayEquals(new int[] { 0, 0 }, AniListClient.parseIds("{\"data\":{\"Page\":{\"media\":[]}}}"));
+     }
++
++    @Test
++    public void mediaWithCleanDescriptionAndScore() throws Exception {
++        String json = "{\"data\":{\"Page\":{\"media\":[{\"id\":21202,\"idMal\":30831,"
++                + "\"title\":{\"romaji\":\"Kono Subarashii Sekai ni Shukufuku wo!\",\"english\":\"KONOSUBA\"},"
++                + "\"description\":\"Kazuma dies.<br><br>He is sent to <i>another world</i>.\\n(Source: Crunchyroll)\","
++                + "\"averageScore\":82}]}}}";
++        AniListClient.Media media = AniListClient.parseMedia(json);
++        assertEquals(21202, media.id);
++        assertEquals(30831, media.idMal);
++        assertEquals(82, media.averageScore);
++        assertEquals("Kazuma dies.\n\nHe is sent to another world.", media.description);
++    }
+ }

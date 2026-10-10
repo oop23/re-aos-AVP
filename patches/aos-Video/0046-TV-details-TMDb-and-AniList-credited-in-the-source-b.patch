@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:50:57 +0000
+Subject: [PATCH] TV details: TMDb and AniList credited in the source badge
+
+---
+ .../VideoDetailsDescriptionPresenter.java     | 20 ++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java
+index 8a03678..762f02e 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java
+@@ -229,7 +229,13 @@ public class VideoDetailsDescriptionPresenter extends Presenter {
+         android.content.Context context = vh.view.getContext();
+         String path = video.getFilePath();
+         StringBuilder sources = new StringBuilder();
+-        if (video instanceof Episode && SearchShowParser.isAnimePath(android.net.Uri.parse(path))) sources.append("AniList");
++        long onlineId = video instanceof Movie ? ((Movie) video).getOnlineId()
++                : video instanceof Episode ? ((Episode) video).getOnlineId() : -1;
++        if (onlineId > 0) sources.append("TMDb");
++        if (video instanceof Episode && (SearchShowParser.isAnimePath(android.net.Uri.parse(path))
++                || DataSources.isAniListShow(context, showOnlineId(context, path)))) {
++            sources.append(sources.length() > 0 ? " · " : "").append("AniList");
++        }
+         if (DataSources.isNfo(context, path)) sources.append(sources.length() > 0 ? " · " : "").append(context.getString(R.string.data_source_nfo));
+         String key = video instanceof Episode ? MetadataOverrides.episodeKey(path) : MetadataOverrides.movieKey(path);
+         if (MetadataOverrides.has(context, key)) sources.append(sources.length() > 0 ? " · " : "").append(context.getString(R.string.data_source_edited));
+@@ -241,6 +247,18 @@ public class VideoDetailsDescriptionPresenter extends Presenter {
+         }
+     }
+ 
++    /** TMDb id of the show of the episode at this path, -1 when unknown. */
++    private static long showOnlineId(android.content.Context context, String path) {
++        try (android.database.Cursor c = context.getContentResolver().query(VideoStore.Video.Media.EXTERNAL_CONTENT_URI,
++                new String[] { VideoStore.Video.VideoColumns.SCRAPER_S_ONLINE_ID },
++                VideoStore.MediaColumns.DATA + "=?", new String[] { path }, null)) {
++            if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getLong(0);
++        } catch (Exception ignored) {
++            // no badge rather than a crash
++        }
++        return -1;
++    }
++
+     private void setTextOrSetInvisibleIfEmpty(TextView mTextView, String text) {
+         if (text==null || text.isEmpty()) {
+             mTextView.setVisibility(View.INVISIBLE);
