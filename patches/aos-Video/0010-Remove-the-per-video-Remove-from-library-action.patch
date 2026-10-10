@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:32:48 +0000
+Subject: [PATCH] Remove the per video 'Remove from library' action
+
+It only hid the video or show from the library, with no way to bring it
+back (the unhide action was never finished), and users took it for a
+file deletion. Library content now simply mirrors the sources; folders
+can still be removed from the indexed sources.
+---
+ .../mediacenter/video/browser/BrowserByVideoObjects.java   | 7 ++-----
+ .../video/browser/tools/MultipleSelectionManager.java      | 2 --
+ .../mediacenter/video/info/VideoInfoActivityFragment.java  | 1 -
+ .../video/leanback/details/VideoActionAdapter.java         | 3 ++-
+ .../video/leanback/tvshow/TvshowActionAdapter.java         | 1 -
+ 5 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java b/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java
+index 03cf46f..4f14c4b 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java
+@@ -217,11 +217,8 @@ public abstract class BrowserByVideoObjects extends Browser implements CommonPre
+ 
+         }
+ 
+-        // Propose to remove from DB the files that are indexed
+-        if (video.getId()>0) {
+-            menu.add(0, R.string.video_browser_unindex_file, 0, R.string.video_browser_unindex_file);
+-        }
+-        else
++        // ReNova: no per video "remove from library" (it only hid the entry, with no way back)
++        if (video.getId() <= 0)
+             menu.add(0, R.string.video_browser_index_file, 0, R.string.video_browser_index_file);
+     }
+ 
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java b/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java
+index 3653aa0..a809f9e 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java
+@@ -68,7 +68,6 @@ public class MultipleSelectionManager implements ActionMode.Callback {
+ 
+     @Override
+     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+-        menu.add(0, R.string.video_browser_unindex_file, 0, R.string.video_browser_unindex_file).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+         menu.add(0, R.string.video_browser_index_file, 0, R.string.video_browser_index_file).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+         menu.add(0, R.string.mark_as_watched, 0, R.string.mark_as_watched).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+         menu.add(0, R.string.mark_as_not_watched, 0, R.string.mark_as_not_watched).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+@@ -149,7 +148,6 @@ public class MultipleSelectionManager implements ActionMode.Callback {
+         }
+ 
+ 
+-        menu.findItem(R.string.video_browser_unindex_file).setVisible(areAllIndexed&&mArchosGridView.getCheckedItemCount() > 0);
+         menu.findItem(R.string.video_browser_index_file).setVisible(!areAllIndexed && areFiles && areNotLocal);
+         menu.findItem(R.string.mark_as_not_watched).setVisible(markAsUnWatched);
+         menu.findItem(R.string.mark_as_watched).setVisible(markAsWatched);
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 41ba0a0..241a4db 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -1059,7 +1059,6 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+             addMenu(0, R.string.mark_as_not_watched, 0, R.string.mark_as_not_watched);
+ 
+         else addMenu(0, R.string.mark_as_watched, 0, R.string.mark_as_watched);
+-        addMenu(0, R.string.video_browser_unindex_file, DELETE_GROUP, R.string.video_browser_unindex_file);
+     }
+ 
+     public void requestIndexAndScrap(){
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java
+index 6221840..1abad04 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoActionAdapter.java
+@@ -172,7 +172,8 @@ public class VideoActionAdapter extends SparseArrayObjectAdapter {
+              } ******/
+ 
+ 
+-            set(ACTION_UNINDEX, new Action(ACTION_UNINDEX, mContext.getString(R.string.video_browser_unindex_file)));
++            // ReNova: no "remove from library": it only hid the video, with no way to bring it back
++            clear(ACTION_UNINDEX);
+             clear(ACTION_INDEX);
+         }
+         else {
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
+index 354af74..3e3e294 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
+@@ -56,7 +56,6 @@ public class TvshowActionAdapter extends SparseArrayObjectAdapter {
+             clear(ACTION_MARK_SHOW_AS_NOT_WATCHED);
+             set(ACTION_MARK_SHOW_AS_WATCHED, new Action(ACTION_MARK_SHOW_AS_WATCHED, mContext.getString(R.string.mark_as_watched)));
+         }
+-        set(ACTION_UNINDEX, new Action(ACTION_UNINDEX, context.getString(R.string.video_browser_unindex_file)));
+         set(ACTION_EDIT_METADATA, new Action(ACTION_EDIT_METADATA, context.getString(R.string.metadata_edit)));
+         set(ACTION_CHANGE_INFO, new Action(ACTION_CHANGE_INFO, context.getString(R.string.scrap_change)));
+         update(tvshow);

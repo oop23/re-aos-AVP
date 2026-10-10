@@ -1,0 +1,365 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:34:18 +0000
+Subject: [PATCH] Animated splash screen and blur-in entrance
+
+Launch shows the ReNova logo on the dark background with the renewal
+arrow spinning into place and the nova spark flaring (SplashScreen API,
+animated on Android 12+). The first screen then comes into focus from a
+blur with a short fade and zoom (blur needs Android 12, skipped when
+system animations are off). Played once per process.
+---
+ AndroidManifest.xml                           |  2 +-
+ build.gradle                                  |  2 +
+ res/drawable/renova_splash_animated.xml       | 95 +++++++++++++++++++
+ res/values/styles.xml                         |  7 ++
+ .../mediacenter/video/EntryActivity.java      | 27 +++++-
+ .../video/browser/MainActivity.java           |  2 +
+ .../video/leanback/MainActivityLeanback.java  |  2 +
+ .../video/ui/EntranceAnimation.java           | 92 ++++++++++++++++++
+ 8 files changed, 225 insertions(+), 4 deletions(-)
+ create mode 100644 res/drawable/renova_splash_animated.xml
+ create mode 100644 src/main/java/com/archos/mediacenter/video/ui/EntranceAnimation.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 2f59a65..f072673 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -133,7 +133,7 @@
+             android:exported="true"
+             android:launchMode="singleTask"
+             android:taskAffinity="archos.task.video"
+-            android:theme="@style/ArchosThemeLauncher" />
++            android:theme="@style/Theme.ReNova.Splash" />
+ 
+         <activity
+             android:name=".browser.MainActivity"
+diff --git a/build.gradle b/build.gradle
+index 0f0a3a3..1b88872 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -390,6 +390,8 @@ dependencies {
+     implementation 'androidx.tvprovider:tvprovider:1.1.0'
+     implementation 'androidx.media:media:1.8.0'
+     implementation 'androidx.core:core:1.19.1'
++    // animated splash screen (ReNova)
++    implementation 'androidx.core:core-splashscreen:1.0.1'
+     implementation 'androidx.legacy:legacy-support-core-utils:1.0.0'
+     implementation 'androidx.legacy:legacy-support-core-ui:1.0.0'
+     implementation 'androidx.fragment:fragment:1.9.1'
+diff --git a/res/drawable/renova_splash_animated.xml b/res/drawable/renova_splash_animated.xml
+new file mode 100644
+index 0000000..96bd8e2
+--- /dev/null
++++ b/res/drawable/renova_splash_animated.xml
+@@ -0,0 +1,95 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Splash: the renewal arrow spins into place around the play button, then the nova spark flares -->
++<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:aapt="http://schemas.android.com/aapt">
++    <aapt:attr name="android:drawable">
++        <vector
++            android:width="108dp"
++            android:height="108dp"
++            android:viewportWidth="108"
++            android:viewportHeight="108">
++            <group
++                android:name="arrow"
++                android:pivotX="54"
++                android:pivotY="54"
++                android:rotation="-150">
++                <path
++                    android:pathData="M69.56,38.44 A22,22 0 1,1 46.48,33.33"
++                    android:strokeColor="#FFFFFF"
++                    android:strokeWidth="6"
++                    android:strokeLineCap="round" />
++                <path
++                    android:pathData="M54.2,30.5 L48.3,39.9 L43.9,27.8 Z"
++                    android:fillColor="#FFFFFF"
++                    android:strokeColor="#FFFFFF"
++                    android:strokeWidth="1.5"
++                    android:strokeLineJoin="round" />
++            </group>
++            <path
++                android:pathData="M49.5,44 L49.5,64 L66.5,54 Z"
++                android:fillColor="#FFFFFF"
++                android:strokeColor="#FFFFFF"
++                android:strokeWidth="3"
++                android:strokeLineJoin="round" />
++            <group
++                android:name="spark"
++                android:pivotX="67"
++                android:pivotY="29"
++                android:scaleX="0"
++                android:scaleY="0">
++                <path
++                    android:pathData="M67,23.5 Q67.8,28.2 72.5,29 Q67.8,29.8 67,34.5 Q66.2,29.8 61.5,29 Q66.2,28.2 67,23.5 Z"
++                    android:fillColor="#FFD27A" />
++            </group>
++        </vector>
++    </aapt:attr>
++    <target android:name="arrow">
++        <aapt:attr name="android:animation">
++            <objectAnimator
++                android:duration="650"
++                android:interpolator="@android:interpolator/fast_out_slow_in"
++                android:propertyName="rotation"
++                android:valueFrom="-150"
++                android:valueTo="0"
++                android:valueType="floatType" />
++        </aapt:attr>
++    </target>
++    <target android:name="spark">
++        <aapt:attr name="android:animation">
++            <set android:ordering="sequentially">
++                <set android:ordering="together">
++                    <objectAnimator
++                        android:duration="220"
++                        android:startOffset="480"
++                        android:interpolator="@android:interpolator/fast_out_slow_in"
++                        android:propertyName="scaleX"
++                        android:valueFrom="0"
++                        android:valueTo="1.35"
++                        android:valueType="floatType" />
++                    <objectAnimator
++                        android:duration="220"
++                        android:startOffset="480"
++                        android:interpolator="@android:interpolator/fast_out_slow_in"
++                        android:propertyName="scaleY"
++                        android:valueFrom="0"
++                        android:valueTo="1.35"
++                        android:valueType="floatType" />
++                </set>
++                <set android:ordering="together">
++                    <objectAnimator
++                        android:duration="180"
++                        android:propertyName="scaleX"
++                        android:valueFrom="1.35"
++                        android:valueTo="1"
++                        android:valueType="floatType" />
++                    <objectAnimator
++                        android:duration="180"
++                        android:propertyName="scaleY"
++                        android:valueFrom="1.35"
++                        android:valueTo="1"
++                        android:valueType="floatType" />
++                </set>
++            </set>
++        </aapt:attr>
++    </target>
++</animated-vector>
+diff --git a/res/values/styles.xml b/res/values/styles.xml
+index e8960ed..35ff32e 100644
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -290,4 +290,11 @@
+     </style>
+     <!-- Material 3 theme carried by dialogs shown from both AppCompat and leanback screens -->
+     <style name="MetadataEditDialogTheme" parent="Theme.Material3.DayNight.NoActionBar" />
++    <!-- ReNova splash: animated logo on the dark background (Android 12+ animates, older shows it still) -->
++    <style name="Theme.ReNova.Splash" parent="Theme.SplashScreen">
++        <item name="windowSplashScreenBackground">#07061A</item>
++        <item name="windowSplashScreenAnimatedIcon">@drawable/renova_splash_animated</item>
++        <item name="windowSplashScreenAnimationDuration">900</item>
++        <item name="postSplashScreenTheme">@style/ArchosThemeLauncher</item>
++    </style>
+ </resources>
+diff --git a/src/main/java/com/archos/mediacenter/video/EntryActivity.java b/src/main/java/com/archos/mediacenter/video/EntryActivity.java
+index 2469e25..587d132 100644
+--- a/src/main/java/com/archos/mediacenter/video/EntryActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/EntryActivity.java
+@@ -17,8 +17,12 @@ package com.archos.mediacenter.video;
+ import android.content.Intent;
+ import android.content.SharedPreferences;
+ import android.os.Bundle;
++import android.os.Handler;
++import android.os.Looper;
++import android.os.SystemClock;
+ 
+ import androidx.appcompat.app.AppCompatActivity;
++import androidx.core.splashscreen.SplashScreen;
+ 
+ import com.archos.mediacenter.video.browser.MainActivity;
+ import com.archos.mediacenter.video.leanback.MainActivityLeanback;
+@@ -38,6 +42,8 @@ import java.util.Locale;
+ public class EntryActivity extends AppCompatActivity {
+ 
+     private static final Logger log = LoggerFactory.getLogger(EntryActivity.class);
++    private static final long SPLASH_MIN_MS = 750;
++    private static boolean sSplashShown = false;
+     private SharedPreferences.OnSharedPreferenceChangeListener mThemeChangeListener;
+ 
+     @Override
+@@ -47,6 +53,12 @@ public class EntryActivity extends AppCompatActivity {
+         // EntryActivity uses launcher theme which is already neutral black
+         // The actual theme will be set in the launched activity (MainActivity or MainActivityLeanback)
+         ((CustomApplication) getApplication()).loadLocale();
++        // ReNova: animated splash (logo spinning in) shown while the app starts, once per process
++        SplashScreen splash = SplashScreen.installSplashScreen(this);
++        final boolean firstLaunch = !sSplashShown;
++        sSplashShown = true;
++        final long splashStart = SystemClock.uptimeMillis();
++        splash.setKeepOnScreenCondition(() -> firstLaunch && SystemClock.uptimeMillis() - splashStart < SPLASH_MIN_MS);
+         super.onCreate(savedInstanceState);
+         
+         // Apply window theme after super.onCreate()
+@@ -74,9 +86,18 @@ public class EntryActivity extends AppCompatActivity {
+             i.putExtras(originIntent.getExtras());
+         }
+ 
+-        startActivity(i);;
+-
+-        finish();
++        if (firstLaunch) {
++            // let the logo animation play, then hand over with a cross fade
++            new Handler(Looper.getMainLooper()).postDelayed(() -> {
++                if (isFinishing()) return;
++                startActivity(i);
++                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
++                finish();
++            }, SPLASH_MIN_MS);
++        } else {
++            startActivity(i);
++            finish();
++        }
+ 
+         mThemeChangeListener = new SharedPreferences.OnSharedPreferenceChangeListener() {
+             @Override
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/MainActivity.java b/src/main/java/com/archos/mediacenter/video/browser/MainActivity.java
+index b76c2d6..0a111f8 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/MainActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/MainActivity.java
+@@ -84,6 +84,7 @@ import com.archos.mediaprovider.video.NetworkScannerReceiver;
+ import com.archos.mediacenter.utils.GlobalResumeView;
+ import com.archos.mediacenter.utils.trakt.Trakt;
+ import com.archos.mediacenter.video.CustomApplication;
++import com.archos.mediacenter.video.ui.EntranceAnimation;
+ import com.archos.mediacenter.video.DensityTweak;
+ import com.archos.mediacenter.video.EntryActivity;
+ import com.archos.mediacenter.video.R;
+@@ -289,6 +290,7 @@ public class MainActivity extends BrowserActivity implements ExternalPlayerWithR
+         ((CustomApplication) getApplication()).loadLocale();
+         this.setVolumeControlStream(AudioManager.STREAM_MUSIC);
+         super.onCreate(savedInstanceState);
++        EntranceAnimation.playOnce(this);
+ 
+         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+             @Override
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/MainActivityLeanback.java b/src/main/java/com/archos/mediacenter/video/leanback/MainActivityLeanback.java
+index 47506ac..cbbb8b9 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/MainActivityLeanback.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/MainActivityLeanback.java
+@@ -37,6 +37,7 @@ import android.view.KeyEvent;
+ import android.view.ViewConfiguration;
+ 
+ import com.archos.mediacenter.video.CustomApplication;
++import com.archos.mediacenter.video.ui.EntranceAnimation;
+ import com.archos.mediacenter.video.DensityTweak;
+ import com.archos.mediacenter.video.EntryActivity;
+ import com.archos.mediacenter.video.R;
+@@ -189,6 +190,7 @@ public class MainActivityLeanback extends LeanbackActivity {
+                 .showDensityChoiceIfNeeded();
+ 
+         setContentView(R.layout.androidtv_root_activity);
++        EntranceAnimation.playOnce(this);
+         AutoScrapeService.registerObserver(this);
+ 
+         // Register theme change listener to update window immediately when theme changes
+diff --git a/src/main/java/com/archos/mediacenter/video/ui/EntranceAnimation.java b/src/main/java/com/archos/mediacenter/video/ui/EntranceAnimation.java
+new file mode 100644
+index 0000000..54f89be
+--- /dev/null
++++ b/src/main/java/com/archos/mediacenter/video/ui/EntranceAnimation.java
+@@ -0,0 +1,92 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediacenter.video.ui;
++
++import android.animation.ValueAnimator;
++import android.app.Activity;
++import android.graphics.RenderEffect;
++import android.graphics.Shader;
++import android.os.Build;
++import android.provider.Settings;
++import android.view.View;
++import android.view.animation.DecelerateInterpolator;
++
++/**
++ * First screen after the splash: the UI comes into focus, from blurred, slightly zoomed out and
++ * transparent to sharp. Blur needs Android 12 (RenderEffect); older versions only fade and zoom.
++ * Played once per process, and skipped when the user disabled animations.
++ */
++public final class EntranceAnimation {
++
++    private static boolean sPlayed = false;
++    private static final long DURATION_MS = 520;
++    private static final float START_BLUR_PX = 28f;
++
++    private EntranceAnimation() {}
++
++    public static void playOnce(Activity activity) {
++        if (sPlayed || activity == null) return;
++        sPlayed = true;
++        if (animationsDisabled(activity)) return;
++        final View content = activity.findViewById(android.R.id.content);
++        if (content == null) return;
++        content.setAlpha(0f);
++        content.setScaleX(0.97f);
++        content.setScaleY(0.97f);
++        content.post(() -> {
++            ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
++            animator.setDuration(DURATION_MS);
++            animator.setInterpolator(new DecelerateInterpolator(1.6f));
++            animator.addUpdateListener(a -> {
++                float f = (float) a.getAnimatedValue();
++                content.setAlpha(Math.min(1f, f * 1.4f));
++                float scale = 0.97f + 0.03f * f;
++                content.setScaleX(scale);
++                content.setScaleY(scale);
++                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
++                    float radius = START_BLUR_PX * (1f - f);
++                    content.setRenderEffect(radius < 0.5f ? null
++                            : RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP));
++                }
++            });
++            animator.addListener(new android.animation.AnimatorListenerAdapter() {
++                @Override
++                public void onAnimationEnd(android.animation.Animator animation) {
++                    reset(content);
++                }
++
++                @Override
++                public void onAnimationCancel(android.animation.Animator animation) {
++                    reset(content);
++                }
++            });
++            animator.start();
++        });
++    }
++
++    private static void reset(View content) {
++        content.setAlpha(1f);
++        content.setScaleX(1f);
++        content.setScaleY(1f);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) content.setRenderEffect(null);
++    }
++
++    private static boolean animationsDisabled(Activity activity) {
++        try {
++            return Settings.Global.getFloat(activity.getContentResolver(),
++                    Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f;
++        } catch (Exception e) {
++            return false;
++        }
++    }
++}

@@ -49,11 +49,17 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 ### 🖼️ Sharper artwork
 - Posters downloaded at w780 (were w500, collections w342) and episode stills at full size scaled to 780px (were 300px thumbnails): no more soft covers on TVs.
 
+### 🛡️ Robustness
+- **Libraries no longer vanish** when a NAS is still asleep or a share answers empty: a rescan that would wipe most of a source is held back until the next scan confirms it (Kodi never auto-cleans either).
+- **Progress is kept** when you leave a resumed video while it is still loading (it used to be reset to 0).
+- The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
+
 ### 🔊 Correct audio language
 - A polish voice-over (*lektor*) or dub tagged `eng`/`und` in the container is detected from the track title (`Lektor PL`, `Dubbing`, `Polski`…) or the release name (`PL.LEKTOR`, `PLDUB`, `[Lektor PL]`), so the preferred-language track is picked and labelled correctly. Works for other languages' track titles too (Deutsch, VFF, Castellano…).
 
 ### 🌙 Modern dark look
 - Material 3 dark themes on phone screens with the ReNova palette (indigo surfaces, violet primary, gold highlights); the TV interface follows the same palette.
+- Animated splash screen (the renewal arrow spins into place, the nova spark flares) and a blur-in entrance into the app.
 - Cinematic backdrops: the artwork stays sharp, only the text side and the bottom fade into the background (instead of dimming the whole picture).
 
 ### 🎨 New identity

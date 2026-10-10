@@ -1,0 +1,170 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:29:24 +0000
+Subject: [PATCH] Never wipe a library because a share answered empty
+
+A network rescan that would remove most of the library under a root
+(NAS still asleep, volume mounted empty, partial listing) is deferred
+until the next scan confirms it, Kodi-like. Real removals are applied
+one scan later. Covers the 'libraries getting lost' reports.
+---
+ .../video/MassDeletionGuard.java              | 54 +++++++++++++++
+ .../video/NetworkScannerServiceVideo.java     | 11 ++++
+ .../video/MassDeletionGuardTest.java          | 65 +++++++++++++++++++
+ 3 files changed, 130 insertions(+)
+ create mode 100644 src/com/archos/mediaprovider/video/MassDeletionGuard.java
+ create mode 100644 test/java/com/archos/mediaprovider/video/MassDeletionGuardTest.java
+
+diff --git a/src/com/archos/mediaprovider/video/MassDeletionGuard.java b/src/com/archos/mediaprovider/video/MassDeletionGuard.java
+new file mode 100644
+index 0000000..28b8079
+--- /dev/null
++++ b/src/com/archos/mediaprovider/video/MassDeletionGuard.java
+@@ -0,0 +1,54 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediaprovider.video;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++
++/**
++ * Libraries must not vanish because a NAS was still asleep, a volume was mounted empty or a share
++ * answered with a partial listing (see upstream #1403, #844). When a network rescan would remove
++ * most of what is known under a root, the removal is deferred: it only happens if the next scan
++ * sees the same thing again. Real, user-made removals are therefore applied one scan later.
++ */
++public final class MassDeletionGuard {
++
++    private static final String PREFS = "mass_deletion_guard";
++    static final int MIN_ITEMS = 20;
++
++    private MassDeletionGuard() {}
++
++    /** pure decision, package visible for tests */
++    static boolean isMassDeletion(int knownItems, int itemsToDelete) {
++        return itemsToDelete >= MIN_ITEMS && itemsToDelete * 2 > knownItems;
++    }
++
++    /**
++     * @return true when the deletions must be skipped for this scan
++     */
++    public static boolean shouldDefer(Context context, String root, int knownItems, int itemsToDelete) {
++        if (context == null || root == null) return false;
++        SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
++        if (!isMassDeletion(knownItems, itemsToDelete)) {
++            if (prefs.contains(root)) prefs.edit().remove(root).apply();
++            return false;
++        }
++        if (prefs.contains(root)) {
++            // confirmed by a second scan: the files are really gone
++            prefs.edit().remove(root).apply();
++            return false;
++        }
++        prefs.edit().putInt(root, itemsToDelete).apply();
++        return true;
++    }
++}
+diff --git a/src/com/archos/mediaprovider/video/NetworkScannerServiceVideo.java b/src/com/archos/mediaprovider/video/NetworkScannerServiceVideo.java
+index 8e639f2..3059a26 100644
+--- a/src/com/archos/mediaprovider/video/NetworkScannerServiceVideo.java
++++ b/src/com/archos/mediaprovider/video/NetworkScannerServiceVideo.java
+@@ -1115,6 +1115,17 @@ public class NetworkScannerServiceVideo extends Service implements Handler.Callb
+                 }
+             }
+ 
++            if (totalNeedsDelete > 0) {
++                String guardRoot = (root != null) ? root.getUri().toString() : (mService != null ? mService.mCurrentRootUri : null);
++                if (MassDeletionGuard.shouldDefer(mService, guardRoot, mPrescanItemsMap.size(), totalNeedsDelete)) {
++                    // ReNova: most of the library under this root would go: likely an unreachable or
++                    // half mounted share, wait for the next scan to confirm before removing anything
++                    log.warn("onStop: deferring removal of {}/{} items under {} until confirmed by the next scan",
++                            totalNeedsDelete, mPrescanItemsMap.size(), guardRoot);
++                    totalNeedsDelete = 0;
++                }
++            }
++
+             if (totalNeedsDelete > 0) {
+                 String path = (root != null) ? root.getUri().toString() : (mService != null ? mService.mCurrentRootUri : null);
+                 int remaining = totalNeedsDelete;
+diff --git a/test/java/com/archos/mediaprovider/video/MassDeletionGuardTest.java b/test/java/com/archos/mediaprovider/video/MassDeletionGuardTest.java
+new file mode 100644
+index 0000000..e75e3ce
+--- /dev/null
++++ b/test/java/com/archos/mediaprovider/video/MassDeletionGuardTest.java
+@@ -0,0 +1,65 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediaprovider.video;
++
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import android.content.Context;
++
++import androidx.test.core.app.ApplicationProvider;
++
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 33)
++public class MassDeletionGuardTest {
++
++    private Context mContext;
++
++    @Before
++    public void setUp() {
++        mContext = ApplicationProvider.getApplicationContext();
++        mContext.getSharedPreferences("mass_deletion_guard", Context.MODE_PRIVATE).edit().clear().commit();
++    }
++
++    @Test
++    public void smallOrPartialRemovalsAreApplied() {
++        assertFalse(MassDeletionGuard.isMassDeletion(1000, 10));
++        assertFalse(MassDeletionGuard.isMassDeletion(1000, 400));
++        assertFalse(MassDeletionGuard.isMassDeletion(30, 19));
++        assertFalse(MassDeletionGuard.shouldDefer(mContext, "smb://nas/movies", 1000, 400));
++    }
++
++    @Test
++    public void emptyListingOfABigLibraryIsDeferredOnce() {
++        assertTrue(MassDeletionGuard.isMassDeletion(1000, 1000));
++        // first scan sees an empty share: keep the library
++        assertTrue(MassDeletionGuard.shouldDefer(mContext, "smb://nas/movies", 1000, 1000));
++        // second scan confirms: apply
++        assertFalse(MassDeletionGuard.shouldDefer(mContext, "smb://nas/movies", 1000, 1000));
++        // and the state is reset afterwards
++        assertTrue(MassDeletionGuard.shouldDefer(mContext, "smb://nas/movies", 1000, 1000));
++    }
++
++    @Test
++    public void aHealthyScanInBetweenResetsTheGuard() {
++        assertTrue(MassDeletionGuard.shouldDefer(mContext, "smb://nas/series", 500, 500));
++        assertFalse(MassDeletionGuard.shouldDefer(mContext, "smb://nas/series", 500, 0));
++        assertTrue(MassDeletionGuard.shouldDefer(mContext, "smb://nas/series", 500, 500));
++    }
++}

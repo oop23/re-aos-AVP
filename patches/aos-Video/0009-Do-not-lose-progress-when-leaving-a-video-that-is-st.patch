@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:29:53 +0000
+Subject: [PATCH] Do not lose progress when leaving a video that is still
+ loading
+
+Resuming a video and pressing back while it was still loading (prepared
+but not yet sought to the resume point) saved position 0 and wiped the
+progress (upstream #1703, unanswered). The stored resume point is now
+kept until the start position has been applied.
+---
+ .../mediacenter/video/player/PlayerService.java       | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerService.java b/src/main/java/com/archos/mediacenter/video/player/PlayerService.java
+index bf504c1..571c3e4 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerService.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerService.java
+@@ -1178,7 +1178,9 @@ public class PlayerService extends Service implements Player.Listener, IndexHelp
+ 
+     public void persistVideoInfoFromFrontend(VideoDbInfo videoInfo) {
+         if (videoInfo == null || mIndexHelper == null) return;
+-        if (Objects.equals(mPlaybackSession.uri, videoInfo.uri)) {
++        // same as saveVideoStateIfReady: never replace the resume point before it was applied
++        if (Objects.equals(mPlaybackSession.uri, videoInfo.uri)
++                && (mPlaybackSession.completed || mPlaybackSession.startPositionApplied)) {
+             int position = mPlaybackSession.completed
+                     ? LAST_POSITION_END
+                     : captureCurrentPosition(mPlayer != null && !mPlayer.isPaused());
+@@ -1190,6 +1192,13 @@ public class PlayerService extends Service implements Player.Listener, IndexHelp
+     public void saveVideoStateIfReady(){
+         if(mIndexHelper!=null) {
+             if ((mPlayerState != PlayerState.INIT && mPlayerState != PlayerState.PREPARING)) {// if it has really been played at least once, otherwise it would overwrite lastresume with 0
++                if (!mPlaybackSession.completed && !mPlaybackSession.startPositionApplied) {
++                    // ReNova (upstream #1703): leaving while the resumed video is still loading
++                    // (prepared but not yet sought to the resume point) used to save position 0
++                    // and wipe the progress: keep the stored resume point instead
++                    log.info("saveVideoStateIfReady: start position not applied yet, keeping stored resume point");
++                    return;
++                }
+                 if (log.isDebugEnabled()) log.debug("saveVideoStateIfReady");
+                 int resumePosition = mPlaybackSession.completed
+                         ? LAST_POSITION_END
