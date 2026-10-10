@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:21:20 +0000
+Subject: [PATCH] Read .nfo files on network shares by default, like Kodi (read
+ only)
+
+---
+ res/values/nfo_import_export.xml | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/res/values/nfo_import_export.xml b/res/values/nfo_import_export.xml
+index 459455f..6246675 100644
+--- a/res/values/nfo_import_export.xml
++++ b/res/values/nfo_import_export.xml
+@@ -2,7 +2,8 @@
+ <resources>
+ 
+     <!-- parse nfo files while indexing smb - default value -->
+-    <item name="network_nfo_parse_default" format="boolean" type="bool">false</item>
++    <!-- ReNova: read .nfo files on network shares like Kodi does (never written) -->
++    <item name="network_nfo_parse_default" format="boolean" type="bool">true</item>
+     <!-- parse nfo files while indexing smb - preference key -->
+     <string name="network_nfo_parse_prefkey">network_nfo_parse</string>
+ 

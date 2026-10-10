@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:21:54 +0000
+Subject: [PATCH] Find library folders indexed twice under a server name and
+ its IP
+
+---
+ .../mediacenter/utils/ShortcutDbAdapter.java  | 32 +++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/src/com/archos/mediacenter/utils/ShortcutDbAdapter.java b/src/com/archos/mediacenter/utils/ShortcutDbAdapter.java
+index 8be077a..d8ed458 100644
+--- a/src/com/archos/mediacenter/utils/ShortcutDbAdapter.java
++++ b/src/com/archos/mediacenter/utils/ShortcutDbAdapter.java
+@@ -304,6 +304,38 @@ public enum ShortcutDbAdapter {
+         return conflict;
+     }
+ 
++    /**
++     * Pairs of indexed folders that are the same share under two spellings (indexed before ReNova
++     * refused it). Resolves server names through the network: call it off the main thread.
++     */
++    public List<String[]> findIndexedTwice(Context context) {
++        List<String[]> pairs = new ArrayList<>();
++        List<Uri> indexed = getIndexedUris(context);
++        if (indexed == null || indexed.size() < 2) return pairs;
++        final java.util.Map<String, String> resolved = new java.util.HashMap<>();
++        ShareEquivalence.Resolver resolver = name -> {
++            if (resolved.containsKey(name)) return resolved.get(name);
++            String ip = SambaDiscovery.getIpFromShareName(name);
++            if (ip == null) {
++                try {
++                    ip = java.net.InetAddress.getByName(name).getHostAddress();
++                } catch (Exception ignored) {
++                    // unknown name: compared as a name
++                }
++            }
++            resolved.put(name, ip);
++            return ip;
++        };
++        for (int i = 0; i < indexed.size(); i++) {
++            for (int j = i + 1; j < indexed.size(); j++) {
++                String a = indexed.get(i).toString(), b = indexed.get(j).toString();
++                if (a.startsWith(b) || b.startsWith(a)) continue;
++                if (ShareEquivalence.overlaps(a, b, resolver)) pairs.add(new String[] { a, b });
++            }
++        }
++        return pairs;
++    }
++
+     /** @return true (after telling the user) when the folder is already indexed under another name */
+     public boolean refuseSameShareOtherName(Context context, String uri) {
+         final String conflict = findSameShareIndexedOtherwise(context, uri);

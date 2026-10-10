@@ -46,7 +46,7 @@ index 1a8a41d..b36e2cd 100644
                      android:id="@+id/scrap_source_nfo"
                      style="@style/DataSourceChip"
 diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
-index 55a4f68..31ce3b6 100644
+index 748b59d..6dfb3ed 100644
 --- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
 +++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
 @@ -256,6 +256,9 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
@@ -68,7 +68,7 @@ index 55a4f68..31ce3b6 100644
          mNfoSourceChip = mRoot.findViewById(R.id.scrap_source_nfo);
          mEditedSourceChip = mRoot.findViewById(R.id.scrap_source_edited);
          mScraperPlotContainer = (CardView)mRoot.findViewById(R.id.scraper_plot_container);
-@@ -1348,8 +1353,12 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+@@ -1350,8 +1355,12 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
              startActivity(it);
              //WebUtils.openWebLink(getActivity(), imdbUrl);
          }
@@ -83,7 +83,7 @@ index 55a4f68..31ce3b6 100644
          }
          else if(view == mPosterImageView){
              if(!mCurrentVideo.hasScraperData())
-@@ -1364,6 +1373,9 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+@@ -1366,6 +1375,9 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
          Context context = getContext();
          if (context == null || mCurrentVideo == null) return;
          mAniListIcon.setVisibility(DataSources.isAniListShow(context, tmdbShowId) ? View.VISIBLE : View.GONE);

@@ -9,7 +9,7 @@ Subject: [PATCH] Details: artwork blurs as the info scrolls over it (Android
  1 file changed, 23 insertions(+)
 
 diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
-index d042298..55a4f68 100644
+index a959dda..748b59d 100644
 --- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
 +++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
 @@ -18,6 +18,8 @@ import android.annotation.SuppressLint;
@@ -21,7 +21,7 @@ index d042298..55a4f68 100644
  import android.graphics.Typeface;
  import android.content.DialogInterface;
  import android.content.Intent;
-@@ -1529,7 +1531,28 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+@@ -1531,7 +1533,28 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
      @Override
      public void onScrollChanged(int i, boolean b, boolean b1) {
          updateHeaderBackground(i, true);

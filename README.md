@@ -32,7 +32,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Every file access backend (SMB via smbj and jcifs, FTP/FTPS, SFTP via sshj and jsch, WebDAV, SAF documents, zip, local storage) **refuses** delete, write, rename, move, mkdir and touch outside the app's own private directories. This is enforced in one place, `SourceAccessPolicy`, below the UI, and covered by unit tests.
 - MediaStore delete/rename requests are refused too.
 - All delete / copy-to-device / NFO export entries are gone from the phone and TV interfaces; the delete code paths refuse before touching the library.
-- Scraped metadata, your edits, resume points and downloaded subtitles stay **on the device**. NFO files on the shares are still **read** (Kodi-compatible), never written.
+- Scraped metadata, your edits, resume points and downloaded subtitles stay **on the device**. NFO files on the shares are **read by default** (Kodi-compatible), never written.
 - Opening a compressed `.torrent` no longer rewrites it in place.
 - The subtitles wizard associates a subtitle by copying it into the private cache instead of renaming it on the drive.
 
@@ -59,7 +59,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **Libraries no longer vanish** when a NAS is still asleep or a share answers empty: a rescan that would wipe most of a source is held back until the next scan confirms it (Kodi never auto-cleans either).
 - **Progress is kept** when you leave a resumed video while it is still loading (it used to be reset to 0).
 - The confusing per-video *Remove from library* action is gone: it only hid entries, with no way to bring them back.
-- **One NAS, one entry**: a server found by IP (shown as an unnamed server) and by name (NetBIOS/mDNS, e.g. `TPLINK`) is merged, and the same share can no longer be indexed twice under its name and its IP (which scraped every video twice).
+- **One NAS, one entry**: a server found by IP (shown as an unnamed server) and by name (NetBIOS/mDNS, e.g. `TPLINK`) is merged, and the same share can no longer be indexed twice under its name and its IP (which scraped every video twice); libraries already indexed twice are pointed out once at start.
 
 ### ▶️ Player
 - Kodi-like **buffering progress** ("Buffering 45%") when playback waits for data.
@@ -90,7 +90,6 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 
 ### Roadmap
 - Further mobile UI modernization of the browse screens.
-- Merging libraries that were already indexed twice under a server name and its IP.
 
 ## Versions
 

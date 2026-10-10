@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:22:17 +0000
+Subject: [PATCH] Short grid: rounded thumbnails with a soft shadow
+
+---
+ res/layout/browser_item_grid_short.xml | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/res/layout/browser_item_grid_short.xml b/res/layout/browser_item_grid_short.xml
+index 7617157..930c055 100644
+--- a/res/layout/browser_item_grid_short.xml
++++ b/res/layout/browser_item_grid_short.xml
+@@ -25,9 +25,12 @@
+         android:layout_marginStart="@dimen/video_grid_poster_margin_left"
+         android:layout_marginEnd="@dimen/video_grid_poster_margin_right"
+         android:layout_marginTop="@dimen/video_grid_poster_margin_top"
+-        android:background="@color/default_icon_background"
++        android:background="@drawable/rounded_rectangle"
++        android:clipToOutline="true"
++        android:elevation="3dp"
+         android:scaleType="center"
+-        android:contentDescription="@null" />
++        android:contentDescription="@null"
++        tools:ignore="UnusedAttribute" />
+ 
+    
+ 

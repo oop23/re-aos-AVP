@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:20:48 +0000
+Subject: [PATCH] Details: gold floating play button with a dark icon
+
+---
+ res/layout-land/video_info2_fragment.xml                     | 5 ++++-
+ res/layout/video_info2_fragment.xml                          | 5 ++++-
+ .../mediacenter/video/info/VideoInfoActivityFragment.java    | 4 ++--
+ 3 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/res/layout-land/video_info2_fragment.xml b/res/layout-land/video_info2_fragment.xml
+index 581eee2..5f63354 100644
+--- a/res/layout-land/video_info2_fragment.xml
++++ b/res/layout-land/video_info2_fragment.xml
+@@ -67,7 +67,10 @@
+             android:clickable="true"
+             android:focusable="true"
+             android:src="@drawable/button_icon_play"
+-            app:elevation="4dp"
++            app:backgroundTint="#FFD27A"
++            app:tint="#2B1D00"
++            app:rippleColor="#40000000"
++            app:elevation="8dp"
+         android:contentDescription="@string/play_selection" />
+ 
+     </androidx.coordinatorlayout.widget.CoordinatorLayout>
+diff --git a/res/layout/video_info2_fragment.xml b/res/layout/video_info2_fragment.xml
+index f2b0947..a2b2faa 100644
+--- a/res/layout/video_info2_fragment.xml
++++ b/res/layout/video_info2_fragment.xml
+@@ -79,8 +79,11 @@
+             android:clickable="true"
+             android:focusable="true"
+             android:src="@drawable/button_icon_play"
++            app:backgroundTint="#FFD27A"
++            app:tint="#2B1D00"
++            app:rippleColor="#40000000"
+             android:visibility="gone"
+-            app:elevation="4dp"
++            app:elevation="8dp"
+         android:contentDescription="@string/play_selection" />
+ 
+     </androidx.coordinatorlayout.widget.CoordinatorLayout>
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 6dfb3ed..f0603ea 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -882,8 +882,8 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+             mRoot.setBackgroundColor(VideoInfoCommonClass.getDarkerColor(mColor));
+         else
+             mRoot.setBackgroundColor(VideoInfoCommonClass.getAlphaColor(VideoInfoCommonClass.getDarkerColor(mColor),160));
+-        if(mGenericPlayButton!=null)
+-            mGenericPlayButton.setBackgroundTintList(new ColorStateList(new int[][]{new int[]{0}}, new int[]{VideoInfoCommonClass.getClearerColor(mColor)}));
++        // ReNova: the floating play button stays gold (set in the layout) instead of taking a
++        // lighter shade of the artwork color, which made it blend into the screen
+     }
+ 
+ 
