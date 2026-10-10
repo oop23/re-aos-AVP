@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
-  <remote name="github" fetch="." />
+  <!-- upstream sources (read only), patched at build time with AVP/patches -->
+  <remote name="github" fetch="https://github.com/nova-video-player/" />
+  <!-- this fork: manifest, build scripts and patches -->
+  <remote name="fork" fetch="https://github.com/oop23/" />
 
   <default revision="master" remote="github" />
 
-  <project path="AVP" name="aos-AVP" revision="nova" >
+  <project path="AVP" name="re-aos-AVP" remote="fork" revision="nova" >
     <copyfile src="Makefile" dest="Makefile" />
   </project>
 
-  <project path="Video" name="aos-Video" revision="v6.4-lint" />
-  <project path="MediaLib" name="aos-MediaLib" revision="v6.4-lint" />
-  <project path="FileCoreLibrary" name="aos-FileCoreLibrary" revision="v6.4-lint" />
+  <!-- pinned to the exact upstream commits AVP/patches apply on -->
+  <project path="Video" name="aos-Video" revision="e394eda85058d076c1b85adf7b64a788068d2c8a" upstream="v6.4-lint" />
+  <project path="MediaLib" name="aos-MediaLib" revision="34e319942e8f9df965bb7feae74e939e232f67c4" upstream="v6.4-lint" />
+  <project path="FileCoreLibrary" name="aos-FileCoreLibrary" revision="93e560b086f60b0e5080267d18613749d4d6cd7b" upstream="v6.4-lint" />
 
   <project path="native/avos" name="aos-avos" revision="v6.4-lint" />
   <project path="native/audiocompress" name="aos-audiocompress" />

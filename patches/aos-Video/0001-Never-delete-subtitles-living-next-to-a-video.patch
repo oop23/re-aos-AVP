@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:48:24 +0000
+Subject: [PATCH] Never delete subtitles living next to a video
+
+---
+ .../java/com/archos/mediacenter/video/utils/VideoUtils.java    | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/VideoUtils.java b/src/main/java/com/archos/mediacenter/video/utils/VideoUtils.java
+index 1aed641..83c817d 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/VideoUtils.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/VideoUtils.java
+@@ -29,6 +29,7 @@ import android.util.Log;
+ import androidx.preference.PreferenceManager;
+ 
+ import com.archos.filecorelibrary.FileUtils;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.mediacenter.utils.videodb.VideoDbInfo;
+ import com.archos.mediacenter.video.R;
+ import com.archos.mediacenter.video.player.PlayerService;
+@@ -79,6 +80,8 @@ public class VideoUtils {
+   * Delete subtitles associated with a video file
+   */
+     public static void deleteAssociatedSubtitles(File videoFile) {
++        // subtitles next to a video belong to the media source: never touch them
++        if (!SourceAccessPolicy.isWritable(Uri.fromFile(videoFile))) return;
+     	if(DBG) Log.d(TAG, "deleteAssociatedSubtitles " + videoFile.getPath());
+     	if (videoFile.isDirectory()) {
+             return;

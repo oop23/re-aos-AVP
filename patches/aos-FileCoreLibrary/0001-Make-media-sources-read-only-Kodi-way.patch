@@ -1,0 +1,825 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:48:24 +0000
+Subject: [PATCH] Make media sources read-only (Kodi way)
+
+All FileEditor implementations now refuse delete, write, rename, move,
+mkdir and touch outside the app private directories. MediaStore delete
+and rename requests are refused too. A single SourceAccessPolicy decides
+what is writable: only internal/external app files and cache dirs.
+
+Nothing in the UI can delete or alter a video, a subtitle or anything
+else living on SMB/FTP/SFTP/WebDAV/UPnP shares, SAF trees or local
+media folders anymore, whatever code path asks for it.
+---
+ .../archos/filecorelibrary/FileUtilsQ.java    |   7 +
+ .../ReadOnlySourceException.java              |  31 ++++
+ .../filecorelibrary/SourceAccessPolicy.java   | 127 ++++++++++++++++
+ .../ContentStorageFileEditor.java             |   6 +
+ .../filecorelibrary/ftp/FtpFileEditor.java    |   6 +
+ .../jcifs/JcifsFileEditor.java                |   7 +-
+ .../localstorage/LocalStorageFileEditor.java  |  10 ++
+ .../filecorelibrary/sftp/SftpFileEditor.java  |   6 +
+ .../filecorelibrary/smbj/SmbjFileEditor.java  |   5 +
+ .../filecorelibrary/sshj/SshjFileEditor.java  |   5 +
+ .../webdav/WebdavFileEditor.java              |   6 +
+ .../filecorelibrary/zip/ZipFileEditor.java    |   3 +
+ .../SourceAccessPolicyTest.java               | 135 ++++++++++++++++++
+ 13 files changed, 353 insertions(+), 1 deletion(-)
+ create mode 100644 src/com/archos/filecorelibrary/ReadOnlySourceException.java
+ create mode 100644 src/com/archos/filecorelibrary/SourceAccessPolicy.java
+ create mode 100644 test/java/com/archos/filecorelibrary/SourceAccessPolicyTest.java
+
+diff --git a/src/com/archos/filecorelibrary/FileUtilsQ.java b/src/com/archos/filecorelibrary/FileUtilsQ.java
+index d227e4d..3237602 100644
+--- a/src/com/archos/filecorelibrary/FileUtilsQ.java
++++ b/src/com/archos/filecorelibrary/FileUtilsQ.java
+@@ -138,6 +138,8 @@ public class FileUtilsQ {
+     public static Boolean delete(ActivityResultLauncher<IntentSenderRequest> launcher, Uri uri) {
+ 
+         if (uri == null) return true;
++        // MediaStore entries are user media: sources are read-only, see SourceAccessPolicy
++        if (!SourceAccessPolicy.allow(uri, "delete")) return false;
+         Boolean isSuccessful = null;
+         ContentResolver contentResolver = mContext.getContentResolver();
+ 
+@@ -178,6 +180,10 @@ public class FileUtilsQ {
+     public static Boolean deleteAll(ActivityResultLauncher<IntentSenderRequest> launcher, List<Uri> allUris) {
+ 
+         if (allUris == null) return true;
++        for (Uri uri : allUris) {
++            // MediaStore entries are user media: sources are read-only, see SourceAccessPolicy
++            if (!SourceAccessPolicy.allow(uri, "delete")) return false;
++        }
+         if (allUris.size() == 0) {
+             log.warn("deleteAll: allUris empty!");
+             return true;
+@@ -230,6 +236,7 @@ public class FileUtilsQ {
+      * @param rename - the name you want to replace with original.
+      */
+     public void rename(Uri uri, String rename) {
++        if (!SourceAccessPolicy.allow(uri, "rename")) return;
+ 
+         //create content values with new name and update
+         ContentValues contentValues = new ContentValues();
+diff --git a/src/com/archos/filecorelibrary/ReadOnlySourceException.java b/src/com/archos/filecorelibrary/ReadOnlySourceException.java
+new file mode 100644
+index 0000000..8a86532
+--- /dev/null
++++ b/src/com/archos/filecorelibrary/ReadOnlySourceException.java
+@@ -0,0 +1,31 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.filecorelibrary;
++
++import android.net.Uri;
++
++import java.io.FileNotFoundException;
++
++/**
++ * Thrown when something tries to modify a media source (network share, local media folder,
++ * SAF document...). Media sources are strictly read-only, see {@link SourceAccessPolicy}.
++ *
++ * Extends FileNotFoundException on purpose: it is what java.io reports for EACCES, so every
++ * existing caller that already falls back on FileNotFoundException/IOException (e.g. subtitles
++ * download falling back to the private cache) keeps working without changes.
++ */
++public class ReadOnlySourceException extends FileNotFoundException {
++    public ReadOnlySourceException(String operation, Uri uri) {
++        super("read-only source, refusing " + operation + " on " + uri);
++    }
++}
+diff --git a/src/com/archos/filecorelibrary/SourceAccessPolicy.java b/src/com/archos/filecorelibrary/SourceAccessPolicy.java
+new file mode 100644
+index 0000000..3ef8dbb
+--- /dev/null
++++ b/src/com/archos/filecorelibrary/SourceAccessPolicy.java
+@@ -0,0 +1,127 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.filecorelibrary;
++
++import android.content.Context;
++import android.net.Uri;
++
++import com.archos.environment.ArchosUtils;
++
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import java.io.File;
++import java.io.IOException;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.concurrent.CopyOnWriteArrayList;
++
++/**
++ * Media sources are read-only, the same way Kodi treats them.
++ *
++ * The player never deletes, renames, moves or writes anything on SMB/FTP/SFTP/WebDAV/UPnP shares,
++ * SAF documents or the user's local media folders. The only places the app may write to through a
++ * {@link FileEditor} are its own private directories (internal files/cache, external app-specific
++ * files/cache). Everything else is refused at the FileEditor level, whatever UI path asked for it.
++ */
++public final class SourceAccessPolicy {
++
++    private static final Logger log = LoggerFactory.getLogger(SourceAccessPolicy.class);
++
++    private static final List<String> sExtraWritableRoots = new CopyOnWriteArrayList<>();
++
++    private SourceAccessPolicy() {}
++
++    /**
++     * @return true only if uri points inside one of the app private directories.
++     */
++    public static boolean isWritable(Uri uri) {
++        if (uri == null) return false;
++        String scheme = uri.getScheme();
++        if (scheme != null && !"file".equalsIgnoreCase(scheme)) return false;
++        String path = uri.getPath();
++        if (path == null || path.isEmpty()) return false;
++        String canonical = canonicalize(path);
++        for (String root : getWritableRoots()) {
++            if (isUnder(canonical, root)) return true;
++        }
++        return false;
++    }
++
++    /**
++     * Throws if uri is not writable. Use at the top of any mutating FileEditor operation that
++     * is allowed to throw.
++     */
++    public static void enforceWritable(Uri uri, String operation) throws ReadOnlySourceException {
++        if (!isWritable(uri)) {
++            log.warn("blocked {} on read-only source {}", operation, uri);
++            throw new ReadOnlySourceException(operation, uri);
++        }
++    }
++
++    /**
++     * Boolean flavour for mutating FileEditor operations that report failure by returning false.
++     */
++    public static boolean allow(Uri uri, String operation) {
++        if (isWritable(uri)) return true;
++        log.warn("blocked {} on read-only source {}", operation, uri);
++        return false;
++    }
++
++    /**
++     * Registers an additional app owned directory as writable (e.g. a dedicated export folder).
++     * Never register a directory that can contain user media.
++     */
++    public static void registerWritableRoot(File dir) {
++        if (dir == null) return;
++        String root = canonicalize(dir.getAbsolutePath());
++        if (!sExtraWritableRoots.contains(root)) sExtraWritableRoots.add(root);
++    }
++
++    static List<String> getWritableRoots() {
++        List<String> roots = new ArrayList<>(sExtraWritableRoots);
++        Context context = ArchosUtils.getGlobalContext();
++        if (context != null) {
++            addRoot(roots, context.getFilesDir());
++            addRoot(roots, context.getCacheDir());
++            addRoot(roots, context.getNoBackupFilesDir());
++            File dbDir = context.getDatabasePath("x").getParentFile();
++            addRoot(roots, dbDir);
++            File[] externalFiles = context.getExternalFilesDirs(null);
++            if (externalFiles != null) for (File f : externalFiles) addRoot(roots, f);
++            File[] externalCaches = context.getExternalCacheDirs();
++            if (externalCaches != null) for (File f : externalCaches) addRoot(roots, f);
++        }
++        return roots;
++    }
++
++    private static void addRoot(List<String> roots, File dir) {
++        if (dir == null) return;
++        roots.add(canonicalize(dir.getAbsolutePath()));
++    }
++
++    static boolean isUnder(String path, String root) {
++        if (root == null || root.isEmpty()) return false;
++        String r = root.endsWith("/") ? root.substring(0, root.length() - 1) : root;
++        return path.equals(r) || path.startsWith(r + "/");
++    }
++
++    static String canonicalize(String path) {
++        try {
++            return new File(path).getCanonicalPath();
++        } catch (IOException e) {
++            // never let ".." trick the prefix check
++            return new File(path).toURI().normalize().getPath();
++        }
++    }
++}
+diff --git a/src/com/archos/filecorelibrary/contentstorage/ContentStorageFileEditor.java b/src/com/archos/filecorelibrary/contentstorage/ContentStorageFileEditor.java
+index 2f03a84..0347e1b 100644
+--- a/src/com/archos/filecorelibrary/contentstorage/ContentStorageFileEditor.java
++++ b/src/com/archos/filecorelibrary/contentstorage/ContentStorageFileEditor.java
+@@ -29,6 +29,7 @@ import android.util.Log;
+ import com.archos.environment.ArchosUtils;
+ import com.archos.filecorelibrary.ExtStorageManager;
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.MimeUtils;
+ 
+ import java.io.File;
+@@ -159,6 +160,7 @@ public class ContentStorageFileEditor extends FileEditor {
+     }
+ 
+     public OutputStream getOutputStream() throws IOException {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         touchFile();
+         try {
+             OutputStream stream = mContext.getContentResolver().openOutputStream(mUri, "rw");
+@@ -172,6 +174,7 @@ return null;
+ 
+     @Override
+     public boolean touchFile() {
++        if (!SourceAccessPolicy.allow(mUri, "create")) return false;
+         Pair<DocumentFile, String> pair = null;
+         try {
+             pair = DocumentUriBuilder.getParentDocumentFileAndFileName(mUri);
+@@ -195,6 +198,7 @@ return null;
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         Pair<DocumentFile, String> pair = null;
+         try {
+             pair = DocumentUriBuilder.getParentDocumentFileAndFileName(mUri);
+@@ -216,6 +220,7 @@ return null;
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         Boolean isDeleteOK = null;
+         DocumentFile file = DocumentUriBuilder.getDocumentFileForUri(mUri);
+         isDeleteOK = file.delete();
+@@ -235,6 +240,7 @@ return null;
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         DocumentFile file = null;
+         try {
+             file = DocumentUriBuilder.getDocumentFileForUri(mUri);
+diff --git a/src/com/archos/filecorelibrary/ftp/FtpFileEditor.java b/src/com/archos/filecorelibrary/ftp/FtpFileEditor.java
+index 17b574c..fa1e260 100644
+--- a/src/com/archos/filecorelibrary/ftp/FtpFileEditor.java
++++ b/src/com/archos/filecorelibrary/ftp/FtpFileEditor.java
+@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
+ 
+ import com.archos.filecorelibrary.AuthenticationException;
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import android.net.Uri;
+ 
+ public class FtpFileEditor extends FileEditor {
+@@ -51,6 +52,7 @@ public class FtpFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         if (log.isDebugEnabled()) log.debug("mkdir: {}", mUri.getPath());
+         FTPClient ftp = null;
+         try {
+@@ -231,6 +233,7 @@ public class FtpFileEditor extends FileEditor {
+ 
+     @Override
+     public OutputStream getOutputStream() throws AuthenticationException, SocketException, IOException {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         if (log.isDebugEnabled()) log.debug("getOutputStream: {}", mUri.getPath());
+         FTPClient ftp = null;
+         try {
+@@ -255,6 +258,7 @@ public class FtpFileEditor extends FileEditor {
+ 
+     @Override
+     public Boolean delete() throws SocketException, IOException, AuthenticationException {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         if (log.isDebugEnabled()) log.debug("delete: {}", mUri.getPath());
+         FTPClient ftp = null;
+         try {
+@@ -270,6 +274,7 @@ public class FtpFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         if (log.isDebugEnabled()) log.debug("rename: {} to {}", mUri.getPath(), newName);
+         FTPClient ftp = null;
+         try {
+@@ -289,6 +294,7 @@ public class FtpFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean move(Uri uri) {
++        if (!SourceAccessPolicy.allow(mUri, "move") || !SourceAccessPolicy.allow(uri, "move")) return false;
+         if (!mUri.getScheme().equals(uri.getScheme()) || !mUri.getHost().equals(uri.getHost()) || mUri.getPort() != uri.getPort())
+             return false;
+         if (log.isDebugEnabled()) log.debug("move: {} to {}", mUri, uri);
+diff --git a/src/com/archos/filecorelibrary/jcifs/JcifsFileEditor.java b/src/com/archos/filecorelibrary/jcifs/JcifsFileEditor.java
+index 22710f0..e04fd90 100644
+--- a/src/com/archos/filecorelibrary/jcifs/JcifsFileEditor.java
++++ b/src/com/archos/filecorelibrary/jcifs/JcifsFileEditor.java
+@@ -27,6 +27,7 @@ import jcifs.smb.SmbFileInputStream;
+ import jcifs.smb.SmbFileOutputStream;
+ 
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.FileUtils;
+ 
+ import android.net.Uri;
+@@ -53,6 +54,7 @@ public class JcifsFileEditor extends FileEditor{
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         try {
+             getSmbFile(mUri).smbFile.mkdir();
+             return true;
+@@ -77,12 +79,14 @@ public class JcifsFileEditor extends FileEditor{
+     }
+ 
+     @Override
+-    public OutputStream getOutputStream() throws SmbException, MalformedURLException, UnknownHostException {
++    public OutputStream getOutputStream() throws IOException {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         return new SmbFileOutputStream(getSmbFile(mUri).smbFile);
+     }
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         SmbFile smbFile = getSmbFile(mUri).smbFile;
+         if (smbFile.isFile() || smbFile.isDirectory())
+             getSmbFile(mUri).smbFile.delete();
+@@ -91,6 +95,7 @@ public class JcifsFileEditor extends FileEditor{
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         try {
+             SmbFile from = getSmbFile(mUri).smbFile;
+             if (from != null) {
+diff --git a/src/com/archos/filecorelibrary/localstorage/LocalStorageFileEditor.java b/src/com/archos/filecorelibrary/localstorage/LocalStorageFileEditor.java
+index d1897f9..48e4af6 100644
+--- a/src/com/archos/filecorelibrary/localstorage/LocalStorageFileEditor.java
++++ b/src/com/archos/filecorelibrary/localstorage/LocalStorageFileEditor.java
+@@ -27,6 +27,7 @@ import android.provider.MediaStore;
+ 
+ import com.archos.filecorelibrary.ExtStorageManager;
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.FileUtils;
+ import com.archos.filecorelibrary.FileUtilsQ;
+ import com.archos.filecorelibrary.MetaFile2;
+@@ -106,6 +107,7 @@ public class LocalStorageFileEditor extends FileEditor {
+     }
+ 
+     public OutputStream getOutputStream() throws IOException {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         OutputStream fos = null;
+         try {
+             fos = new FileOutputStream(new File(mUri.getPath()));
+@@ -126,6 +128,7 @@ public class LocalStorageFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean touchFile() {
++        if (!SourceAccessPolicy.allow(mUri, "create")) return false;
+         try {
+             boolean create = new File(mUri.getPath()).createNewFile();
+             if (create && mContext != null) {
+@@ -155,6 +158,7 @@ public class LocalStorageFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         if (!new File(mUri.getPath()).mkdir()) {
+             //when permission error, try externalsdfilewriter
+             if (mContext != null) {
+@@ -171,6 +175,7 @@ public class LocalStorageFileEditor extends FileEditor {
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         Boolean isDeleteOK = null;
+         if (checkIfShouldNotTouchFolder(mUri)) {
+             // when some folders are protected
+@@ -190,6 +195,7 @@ public class LocalStorageFileEditor extends FileEditor {
+     }
+ 
+     public Boolean deleteDir(Uri dirUri) {
++        if (!SourceAccessPolicy.allow(dirUri, "delete")) return false;
+         Boolean isDeleteOK = null;
+         File dirToDelete = new File(dirUri.getPath());
+         if (dirToDelete.isDirectory()) {
+@@ -203,6 +209,7 @@ public class LocalStorageFileEditor extends FileEditor {
+     }
+ 
+     public Boolean deleteSingleFileOldStyle(Uri fileUri) {
++        if (!SourceAccessPolicy.allow(fileUri, "delete")) return false;
+         Boolean isDeleteOK = null;
+         File toDelete = new File(fileUri.getPath());
+         isDeleteOK = toDelete.delete();
+@@ -327,6 +334,7 @@ public class LocalStorageFileEditor extends FileEditor {
+      * @throws DeleteFailException if database AND file delete fails
+      */
+     public Boolean deleteFileAndDatabase(Context context) throws DeleteFailException {
++        if (!SourceAccessPolicy.allow(mUri, "delete")) throw new DeleteFailException();
+         Boolean isDeleteOK = null;
+         if (checkIfShouldNotTouchFolder(mUri)) {
+             // when some folders are protected
+@@ -350,6 +358,7 @@ public class LocalStorageFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         if (checkIfShouldNotTouchFolder(mUri)) {
+             // when some folders are protected
+             return false;
+@@ -365,6 +374,7 @@ public class LocalStorageFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean move(Uri uri) {
++        if (!SourceAccessPolicy.allow(mUri, "move") || !SourceAccessPolicy.allow(uri, "move")) return false;
+         if (checkIfShouldNotTouchFolder(mUri)) {
+             // when some folders are protected
+             return false;
+diff --git a/src/com/archos/filecorelibrary/sftp/SftpFileEditor.java b/src/com/archos/filecorelibrary/sftp/SftpFileEditor.java
+index b8cc481..0aee413 100644
+--- a/src/com/archos/filecorelibrary/sftp/SftpFileEditor.java
++++ b/src/com/archos/filecorelibrary/sftp/SftpFileEditor.java
+@@ -18,6 +18,7 @@ import android.net.Uri;
+ import android.util.Log;
+ 
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.OwnedStreams;
+ import com.archos.filecorelibrary.ReadOptions;
+ import com.archos.filecorelibrary.AuthenticationException;
+@@ -55,6 +56,7 @@ public class SftpFileEditor  extends FileEditor{
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         if (log.isDebugEnabled()) log.debug("mkdir: {}", mUri.getPath());
+         Channel channel = null;
+         try {
+@@ -122,6 +124,7 @@ public class SftpFileEditor  extends FileEditor{
+ 
+     @Override
+     public OutputStream getOutputStream() throws FileNotFoundException, JSchException, SftpException {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         Channel channel = SFTPSession.getInstance().getSFTPChannel(mUri);
+         try {
+             OutputStream stream = ((ChannelSftp) channel).put(mUri.getPath());
+@@ -135,6 +138,7 @@ public class SftpFileEditor  extends FileEditor{
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         if (log.isDebugEnabled()) log.debug("delete: {}", mUri.getPath());
+         Channel channel = null;
+         try {
+@@ -164,6 +168,7 @@ public class SftpFileEditor  extends FileEditor{
+ 
+     @Override
+     public boolean rename(String newName){
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         if (log.isDebugEnabled()) log.debug("rename: {} to {}", mUri.getPath(), newName);
+         Channel channel = null;
+         try {
+@@ -185,6 +190,7 @@ public class SftpFileEditor  extends FileEditor{
+ 
+     @Override
+     public boolean move(Uri uri) {
++        if (!SourceAccessPolicy.allow(mUri, "move") || !SourceAccessPolicy.allow(uri, "move")) return false;
+         if(!mUri.getScheme().equals(uri.getScheme())|| !mUri.getHost().equals(uri.getHost())||mUri.getPort()!=uri.getPort())
+             return false;
+         if (log.isDebugEnabled()) log.debug("move: {} to {}", mUri, uri);
+diff --git a/src/com/archos/filecorelibrary/smbj/SmbjFileEditor.java b/src/com/archos/filecorelibrary/smbj/SmbjFileEditor.java
+index 0403ad1..8bb72c1 100644
+--- a/src/com/archos/filecorelibrary/smbj/SmbjFileEditor.java
++++ b/src/com/archos/filecorelibrary/smbj/SmbjFileEditor.java
+@@ -23,6 +23,7 @@ import android.net.Uri;
+ import com.archos.environment.ObservableInputStream;
+ import com.archos.environment.ObservableOutputStream;
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.ReadOptions;
+ import com.archos.filecorelibrary.OwnedStreams;
+ import com.hierynomus.msdtyp.AccessMask;
+@@ -123,6 +124,7 @@ public class SmbjFileEditor extends FileEditor {
+ 
+     @Override
+     public OutputStream getOutputStream() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         if (log.isTraceEnabled()) log.trace("getOutputStream: opening {}", mUri);
+         SmbjUtils utils = requireUtils();
+         return utils.withRetry(mUri, () -> {
+@@ -149,6 +151,7 @@ public class SmbjFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         try {
+             SmbjUtils utils = requireUtils();
+             return utils.withRetry(mUri, () -> {
+@@ -167,6 +170,7 @@ public class SmbjFileEditor extends FileEditor {
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         SmbjUtils utils = requireUtils();
+         try {
+             return utils.withRetry(mUri, () -> {
+@@ -234,6 +238,7 @@ public class SmbjFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         String mFilePath = getFilePath(mUri);
+         try {
+             SmbjUtils utils = requireUtils();
+diff --git a/src/com/archos/filecorelibrary/sshj/SshjFileEditor.java b/src/com/archos/filecorelibrary/sshj/SshjFileEditor.java
+index 5225653..e9b1734 100644
+--- a/src/com/archos/filecorelibrary/sshj/SshjFileEditor.java
++++ b/src/com/archos/filecorelibrary/sshj/SshjFileEditor.java
+@@ -22,6 +22,7 @@ import android.net.Uri;
+ 
+ import com.archos.filecorelibrary.AuthenticationException;
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.OwnedStreams;
+ import com.archos.filecorelibrary.ReadOptions;
+ 
+@@ -79,6 +80,7 @@ public class SshjFileEditor extends FileEditor {
+ 
+     @Override
+     public OutputStream getOutputStream() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         RemoteFile file = SshjUtils.peekInstance().getSFTPClient(mUri).open(getSftpPath(mUri),
+                 EnumSet.of(OpenMode.CREAT, OpenMode.WRITE, OpenMode.TRUNC));
+         try {
+@@ -96,6 +98,7 @@ public class SshjFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         try {
+             SshjUtils.peekInstance().getSFTPClient(mUri).mkdir(getSftpPath(mUri));
+             return true;
+@@ -115,6 +118,7 @@ public class SshjFileEditor extends FileEditor {
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         final SFTPClient sftpClient = SshjUtils.peekInstance().getSFTPClient(mUri);
+         final String mFilePath = getSftpPath(mUri);
+         final FileAttributes fileAttributes = sftpClient.lstat(mFilePath);
+@@ -135,6 +139,7 @@ public class SshjFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         try {
+             final String mFilePath = getSftpPath(mUri);
+             final SFTPClient sftpClient = SshjUtils.peekInstance().getSFTPClient(mUri);
+diff --git a/src/com/archos/filecorelibrary/webdav/WebdavFileEditor.java b/src/com/archos/filecorelibrary/webdav/WebdavFileEditor.java
+index d65b7cf..67c0e9d 100644
+--- a/src/com/archos/filecorelibrary/webdav/WebdavFileEditor.java
++++ b/src/com/archos/filecorelibrary/webdav/WebdavFileEditor.java
+@@ -20,6 +20,7 @@ import android.content.Context;
+ import android.net.Uri;
+ 
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.OwnedStreams;
+ import com.archos.filecorelibrary.FileUtils;
+ import com.thegrizzlylabs.sardineandroid.impl.OkHttpSardine;
+@@ -156,6 +157,7 @@ public class WebdavFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean mkdir() {
++        if (!SourceAccessPolicy.allow(mUri, "mkdir")) return false;
+         try {
+             var u = WebdavFile2.uriToHttp(mUri);
+             mSardine.createDirectory(u.toString());
+@@ -168,6 +170,7 @@ public class WebdavFileEditor extends FileEditor {
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         var u = WebdavFile2.uriToHttp(mUri);
+         mSardine.delete(u.toString());
+         return null;
+@@ -175,6 +178,7 @@ public class WebdavFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean move(Uri uri) {
++        if (!SourceAccessPolicy.allow(mUri, "move") || !SourceAccessPolicy.allow(uri, "move")) return false;
+         var origin = WebdavFile2.uriToHttp(mUri);
+         try {
+             if (origin != null) {
+@@ -192,6 +196,7 @@ public class WebdavFileEditor extends FileEditor {
+ 
+     @Override
+     public boolean rename(String newName) {
++        if (!SourceAccessPolicy.allow(mUri, "rename")) return false;
+         return move(Uri.parse(FileUtils.getParentUrl(mUri.toString()) + "/" + newName));
+     }
+ 
+@@ -218,6 +223,7 @@ public class WebdavFileEditor extends FileEditor {
+ 
+     @Override
+     public OutputStream getOutputStream() throws IOException {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         Context context = WebdavUtils.getContext();
+         File cacheDir = context != null ? context.getCacheDir() : null;
+         File tempFile = File.createTempFile("webdav_upload_", ".tmp", cacheDir);
+diff --git a/src/com/archos/filecorelibrary/zip/ZipFileEditor.java b/src/com/archos/filecorelibrary/zip/ZipFileEditor.java
+index 0b8e36b..db00612 100644
+--- a/src/com/archos/filecorelibrary/zip/ZipFileEditor.java
++++ b/src/com/archos/filecorelibrary/zip/ZipFileEditor.java
+@@ -19,6 +19,7 @@ import android.net.Uri;
+ import android.util.Log;
+ 
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.FileEditorFactory;
+ import com.archos.filecorelibrary.ListingEngine;
+ import com.archos.filecorelibrary.localstorage.LocalStorageFileEditor;
+@@ -100,11 +101,13 @@ public class ZipFileEditor extends FileEditor {
+ 
+     @Override
+     public OutputStream getOutputStream() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "write");
+         return null;
+     }
+ 
+     @Override
+     public Boolean delete() throws Exception {
++        SourceAccessPolicy.enforceWritable(mUri, "delete");
+         throw new LocalStorageFileEditor.DeleteFailException();
+     }
+ 
+diff --git a/test/java/com/archos/filecorelibrary/SourceAccessPolicyTest.java b/test/java/com/archos/filecorelibrary/SourceAccessPolicyTest.java
+new file mode 100644
+index 0000000..11f5e97
+--- /dev/null
++++ b/test/java/com/archos/filecorelibrary/SourceAccessPolicyTest.java
+@@ -0,0 +1,135 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.filecorelibrary;
++
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++import static org.junit.Assert.fail;
++
++import android.content.Context;
++import android.net.Uri;
++
++import androidx.test.core.app.ApplicationProvider;
++
++import com.archos.environment.ArchosUtils;
++import com.archos.filecorelibrary.ftp.FtpFileEditor;
++import com.archos.filecorelibrary.localstorage.LocalStorageFileEditor;
++import com.archos.filecorelibrary.smbj.SmbjFileEditor;
++
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++import java.io.File;
++import java.io.OutputStream;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 28)
++public class SourceAccessPolicyTest {
++
++    private Context mContext;
++
++    @Before
++    public void setUp() {
++        mContext = ApplicationProvider.getApplicationContext();
++        ArchosUtils.setGlobalContext(mContext);
++    }
++
++    @Test
++    public void networkSourcesAreNeverWritable() {
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("smb://nas/movies/a.mkv")));
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("ftp://nas/movies/a.mkv")));
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("sftp://nas/movies/a.mkv")));
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("webdavs://nas/movies/a.mkv")));
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("upnp://1.2.3.4/a.mkv")));
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("content://media/external/video/media/12")));
++        assertFalse(SourceAccessPolicy.isWritable(null));
++    }
++
++    @Test
++    public void localMediaFoldersAreNotWritable() {
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("file:///storage/emulated/0/Movies/a.mkv")));
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("/storage/emulated/0/Download/a.mkv")));
++    }
++
++    @Test
++    public void appPrivateDirsAreWritable() {
++        assertTrue(SourceAccessPolicy.isWritable(Uri.fromFile(new File(mContext.getCacheDir(), "subtitles/a.srt"))));
++        assertTrue(SourceAccessPolicy.isWritable(Uri.fromFile(new File(mContext.getFilesDir(), "x"))));
++    }
++
++    @Test
++    public void pathTraversalOutOfPrivateDirIsRefused() {
++        File escaped = new File(mContext.getFilesDir(), "../../../../storage/emulated/0/Movies/a.mkv");
++        assertFalse(SourceAccessPolicy.isWritable(Uri.fromFile(escaped)));
++    }
++
++    @Test
++    public void siblingPrefixIsNotConfusedWithRoot() {
++        String files = mContext.getFilesDir().getAbsolutePath();
++        assertFalse(SourceAccessPolicy.isWritable(Uri.parse("file://" + files + "_evil/a.mkv")));
++    }
++
++    @Test
++    public void networkEditorsRefuseMutations() throws Exception {
++        FileEditor[] editors = {
++                new SmbjFileEditor(Uri.parse("smb://nas/movies/a.mkv")),
++                new FtpFileEditor(Uri.parse("ftp://nas/movies/a.mkv")),
++        };
++        for (FileEditor editor : editors) {
++            try {
++                editor.delete();
++                fail("delete must be refused for " + editor.getUri());
++            } catch (ReadOnlySourceException expected) {
++            }
++            try {
++                editor.getOutputStream();
++                fail("write must be refused for " + editor.getUri());
++            } catch (ReadOnlySourceException expected) {
++            }
++            assertFalse(editor.rename("b.mkv"));
++            assertFalse(editor.move(Uri.parse("smb://nas/movies/b.mkv")));
++            assertFalse(editor.mkdir());
++        }
++    }
++
++    @Test
++    public void localEditorProtectsMediaButAllowsPrivateCache() throws Exception {
++        File media = File.createTempFile("movie", ".mkv");
++        try {
++            LocalStorageFileEditor editor = new LocalStorageFileEditor(Uri.fromFile(media), mContext);
++            try {
++                editor.delete();
++                fail("delete must be refused outside app private dirs");
++            } catch (ReadOnlySourceException expected) {
++            }
++            assertTrue(media.exists());
++            assertFalse(editor.rename("renamed.mkv"));
++            assertTrue(media.exists());
++        } finally {
++            media.delete();
++        }
++
++        File cached = new File(mContext.getCacheDir(), "subtitles/test.srt");
++        cached.getParentFile().mkdirs();
++        LocalStorageFileEditor cacheEditor = new LocalStorageFileEditor(Uri.fromFile(cached), mContext);
++        try (OutputStream os = cacheEditor.getOutputStream()) {
++            os.write('x');
++        }
++        assertTrue(cached.exists());
++        cacheEditor.delete();
++        assertFalse(cached.exists());
++    }
++}

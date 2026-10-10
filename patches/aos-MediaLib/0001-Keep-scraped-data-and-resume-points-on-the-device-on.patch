@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:48:24 +0000
+Subject: [PATCH] Keep scraped data and resume points on the device only
+
+Never export NFO/jpg files next to the videos, never write or delete
+.archosresume.xml files on the media source, and never let the artwork
+cleanup trigger delete a file that lives in a media source.
+---
+ .../archos/mediacenter/utils/videodb/XmlDb.java    |  5 +++++
+ .../archos/mediaprovider/DeleteFileCallback.java   |  7 ++++++-
+ src/com/archos/mediascraper/NfoWriter.java         | 14 +++++++++-----
+ 3 files changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/src/com/archos/mediacenter/utils/videodb/XmlDb.java b/src/com/archos/mediacenter/utils/videodb/XmlDb.java
+index 1566e9c..382d622 100644
+--- a/src/com/archos/mediacenter/utils/videodb/XmlDb.java
++++ b/src/com/archos/mediacenter/utils/videodb/XmlDb.java
+@@ -21,6 +21,7 @@ import android.os.Looper;
+ import android.os.Message;
+ 
+ import com.archos.filecorelibrary.FileEditor;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.filecorelibrary.MetaFile2;
+ import com.archos.filecorelibrary.RawLister;
+ import com.archos.filecorelibrary.FileUtils;
+@@ -518,6 +519,7 @@ public class XmlDb implements Callback {
+     }
+ 
+     public static void deleteAssociatedResumeDatabase(Uri videoFile) {
++        if (!SourceAccessPolicy.isWritable(videoFile)) return;
+         List <MetaFile2> todelete = getListOfDBForUri(videoFile);
+         if(todelete!=null&&!todelete.isEmpty()){
+             for(MetaFile2 mf2 : todelete){
+@@ -559,6 +561,9 @@ public class XmlDb implements Callback {
+         //first, merge remote cache with cache in memory
+         if(entry==null)
+             return false;
++        // resume points are kept in the device database, never written to the media source
++        if (!SourceAccessPolicy.isWritable(getXmlPath(entry)))
++            return false;
+ 
+         deletePreviousResumeDatabase(previousXmlUri, entry);
+         final StringWriter writer = new StringWriter(5000);
+diff --git a/src/com/archos/mediaprovider/DeleteFileCallback.java b/src/com/archos/mediaprovider/DeleteFileCallback.java
+index 76dfe6e..a65bc04 100644
+--- a/src/com/archos/mediaprovider/DeleteFileCallback.java
++++ b/src/com/archos/mediaprovider/DeleteFileCallback.java
+@@ -15,8 +15,11 @@
+ package com.archos.mediaprovider;
+ 
+ import android.database.sqlite.SQLiteDatabase;
++import android.net.Uri;
+ import android.util.Log;
+ 
++import com.archos.filecorelibrary.SourceAccessPolicy;
++
+ import java.io.File;
+ import java.util.ArrayList;
+ import java.util.List;
+@@ -60,7 +63,9 @@ public class DeleteFileCallback implements SQLiteDbProxy.CustomFunction {
+             if (file != null && !file.isEmpty() && file.charAt(0) == '/') {
+                 if(!DO_NOT_DELETE.contains(file)) {
+                     File f = new File(args[0]);
+-                    success = f.delete();
++                    // only app owned artwork/thumbnails may go, never files living in a media source
++                    if (SourceAccessPolicy.isWritable(Uri.fromFile(f)))
++                        success = f.delete();
+                 }
+                 else
+                     if (DBG) Log.d(TAG, SQLITE_FUNCTION_NAME + " protected file");
+diff --git a/src/com/archos/mediascraper/NfoWriter.java b/src/com/archos/mediascraper/NfoWriter.java
+index 1aa7876..43c0067 100644
+--- a/src/com/archos/mediascraper/NfoWriter.java
++++ b/src/com/archos/mediascraper/NfoWriter.java
+@@ -29,6 +29,7 @@ import android.util.Xml;
+ import com.archos.filecorelibrary.FileEditor;
+ import com.archos.mediacenter.filecoreextension.upnp2.FileEditorFactoryWithUpnp;
+ import com.archos.filecorelibrary.FileUtils;
++import com.archos.filecorelibrary.SourceAccessPolicy;
+ import com.archos.medialib.R;
+ 
+ import org.slf4j.Logger;
+@@ -429,6 +430,12 @@ public class NfoWriter {
+      * export queue rather than merely for the records they have dispatched to it.
+      */
+     public static void export(Uri video, BaseTags tag, ExportContext exportContext, Runnable completion) throws IOException {
++        // Scraped metadata lives on the device only: never write .nfo/.jpg next to the videos.
++        if (!SourceAccessPolicy.isWritable(video)) {
++            if (log.isDebugEnabled()) log.debug("export: skipped, {} is a read-only source", video);
++            if (completion != null) completion.run();
++            return;
++        }
+         enqueueExportTask(() -> {
+             try {
+                 if (tag instanceof MovieTags) {
+@@ -486,10 +493,7 @@ public class NfoWriter {
+     }
+ 
+     public static boolean isNfoAutoExportEnabled(Context context) {
+-        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+-        String prefKey = context.getString(R.string.nfo_export_auto_prefkey);
+-        boolean prefDefault = context.getResources().getBoolean(R.bool.nfo_export_auto_default);
+-        boolean result = pref.getBoolean(prefKey, prefDefault);
+-        return result;
++        // media sources are read-only (Kodi way): scraped data stays in the device database
++        return false;
+     }
+ }

@@ -1,0 +1,416 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 03:51:47 +0000
+Subject: [PATCH] Remove every file deletion and file copy action from the UI
+
+Delete (single, multiple, whole TV show, whole collection, folder),
+copy on device and NFO export entries are gone from the phone and TV
+interfaces. Delete refuses at its entry points before unindexing
+anything, so the library always stays consistent with the source.
+The subtitles wizard no longer renames files on the drive: it copies
+the chosen subtitle into the private subtitles cache instead.
+---
+ res/xml/preferences_video.xml                 | 11 -----
+ .../BrowserAllTvShows.java                    |  2 -
+ .../video/browser/BrowserByVideoObjects.java  |  7 ----
+ .../mediacenter/video/browser/Delete.java     | 37 +++++++++++++++++
+ .../video/browser/adapters/object/Video.java  |  8 +---
+ .../browser/filebrowsing/BrowserByFolder.java |  4 +-
+ .../tools/MultipleSelectionManager.java       |  4 --
+ .../video/cover/CoverRoll3DVideo.java         | 40 -------------------
+ .../video/info/VideoInfoActivityFragment.java |  6 ---
+ .../collections/CollectionActionAdapter.java  | 10 ++---
+ .../leanback/tvshow/TvshowActionAdapter.java  |  1 -
+ .../video/utils/SubtitlesWizardCommon.java    | 14 +++++--
+ .../video/utils/VideoPreferencesCommon.java   |  7 +---
+ 13 files changed, 54 insertions(+), 97 deletions(-)
+
+diff --git a/res/xml/preferences_video.xml b/res/xml/preferences_video.xml
+index 6635c68..756774e 100644
+--- a/res/xml/preferences_video.xml
++++ b/res/xml/preferences_video.xml
+@@ -614,12 +614,6 @@
+             android:summary="@string/enable_scrape_from_db_summary"
+             android:title="@string/enable_scrape_from_db_title"
+             app:iconSpaceReserved="false"/>
+-        <CheckBoxPreference
+-            android:defaultValue="@bool/nfo_export_auto_default"
+-            android:key="@string/nfo_export_auto_prefkey"
+-            android:summary="@string/nfo_export_auto_summary"
+-            android:title="@string/nfo_export_auto_title"
+-            app:iconSpaceReserved="false"/>
+         <Preference
+             android:key="@string/rescrap_all_prefkey"
+             android:title="@string/rescrap_all_title"
+@@ -637,11 +631,6 @@
+             android:summary="@string/recreate_sort_titles_summary"
+             android:title="@string/recreate_sort_titles_title"
+             app:iconSpaceReserved="false"/>
+-        <Preference
+-            android:key="@string/nfo_export_manual_prefkey"
+-            android:summary="@string/nfo_export_manual_summary"
+-            android:title="@string/nfo_export_manual_title"
+-            app:iconSpaceReserved="false"/>
+         <Preference
+             android:key="@string/db_export_manual_prefkey"
+             android:summary="@string/db_export_manual_summary"
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/BrowserByIndexedVideos/BrowserAllTvShows.java b/src/main/java/com/archos/mediacenter/video/browser/BrowserByIndexedVideos/BrowserAllTvShows.java
+index c9baafd..f22b362 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/BrowserByIndexedVideos/BrowserAllTvShows.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/BrowserByIndexedVideos/BrowserAllTvShows.java
+@@ -200,8 +200,6 @@ public class BrowserAllTvShows extends CursorBrowserByVideo {
+ 			cursor2.close();
+ 		}
+ 
+-		if(distant)
+-			menu.add(0, R.string.copy_on_device_multi, 0, R.string.copy_on_device_multi);
+ 	}
+ 	private Cursor getEpisodeForShowCursor(long showId){
+ 		String [] projection2 = new String[]{VideoStore.MediaColumns.DATA,VideoStore.Files.FileColumns._ID};
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java b/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java
+index 6822f97..03cf46f 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/BrowserByVideoObjects.java
+@@ -167,7 +167,6 @@ public abstract class BrowserByVideoObjects extends Browser implements CommonPre
+ 
+         final int resumePosition = video.getResumeMs();
+         final boolean resume = resumePosition > 0;
+-        final boolean delete = !FileUtils.isSlowRemote(Uri.parse(entryPath)) && video.locationSupportsDelete();
+         final boolean markAsTrakt = Trakt.isTraktV2Enabled(mContext, mPreferences);
+         final boolean isNetwork = !FileUtils.isLocal(video.getFileUri());
+         menu.add(0, R.string.play_from_beginning, 0, R.string.play_selection);
+@@ -177,8 +176,6 @@ public abstract class BrowserByVideoObjects extends Browser implements CommonPre
+             menu.add(0, R.string.resume, 0, resumeString);
+         }
+ 
+-        if (delete)
+-            menu.add(0, R.string.delete, 0, R.string.delete);
+         if (resume)
+             menu.add(0, R.string.delete_resume, 0, R.string.delete_resume);
+ 
+@@ -226,10 +223,6 @@ public abstract class BrowserByVideoObjects extends Browser implements CommonPre
+         }
+         else
+             menu.add(0, R.string.video_browser_index_file, 0, R.string.video_browser_index_file);
+-        if(isNetwork){
+-            menu.add(0, R.string.copy_on_device, 0, R.string.copy_on_device);
+-
+-        }
+     }
+ 
+     public void startVideo(int video, int resume) {
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/Delete.java b/src/main/java/com/archos/mediacenter/video/browser/Delete.java
+index eca4639..c82be31 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/Delete.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/Delete.java
+@@ -75,6 +75,9 @@ public class Delete {
+     public static final int OP_MULTIPLE_FILES = 2;
+     public static final int OP_FOLDER = 3;
+ 
++    /** Media sources are read-only (Kodi way): the player never deletes anything from them. */
++    public static final boolean READ_ONLY_SOURCES = true;
++
+     private static final int MAX_DEPTH = 3;//for folder delete : do not delete
+     private static final int MIN_FILE_SIZE = 300000000; //do not delete parent folder if currently deleted file is inferior to min file size
+     private static final int MAX_FOLDER_SIZE = 30000000; //do not delete parent folder if this folder is bigger than that
+@@ -248,6 +251,15 @@ public class Delete {
+     }
+ 
+     public void startMultipleDeleteProcess(final List<Uri> toDelete) { // Uri are only video files
++        if (READ_ONLY_SOURCES) {
++            // refuse before unindexing anything: the library must stay consistent with the source
++            log.warn("startMultipleDeleteProcess: refused, media sources are read-only");
++            if (toDelete != null && !toDelete.isEmpty()) {
++                counter = 1;
++                deleteNOK(toDelete.get(0));
++            }
++            return;
++        }
+         if (log.isDebugEnabled()) log.debug("startMultipleDeleteProcess: {}", ((toDelete != null) ? Arrays.toString(toDelete.toArray()) : null));
+         new Thread(){
+             public void run() {
+@@ -300,6 +312,7 @@ public class Delete {
+     }
+ 
+     public void deleteAssociatedNfoFiles(final Uri fileUri){ //when deleting a description, also delete Nfo
++        if (READ_ONLY_SOURCES) return; // never delete .nfo/.jpg living next to the video
+         if (log.isDebugEnabled()) log.debug("deleteAssociatedNfoFiles: {}", fileUri);
+         new Thread(){
+             public void run(){
+@@ -321,6 +334,13 @@ public class Delete {
+     }
+ 
+     public void startDeleteProcess(final Uri fileUri){
++        if (READ_ONLY_SOURCES) {
++            // refuse before unindexing anything: the library must stay consistent with the source
++            log.warn("startDeleteProcess: refused for {}, media sources are read-only", fileUri);
++            counter = 1;
++            deleteNOK(fileUri);
++            return;
++        }
+         if (log.isDebugEnabled()) log.debug("startDeleteProcess: {}", fileUri);
+         counter = 1; // one fileUri
+         new Thread(){
+@@ -351,6 +371,11 @@ public class Delete {
+     }
+ 
+     public void deleteFileAndAssociatedFiles(Context context, Uri fileUri) {
++        if (READ_ONLY_SOURCES) {
++            counter = 1;
++            deleteNOK(fileUri);
++            return;
++        }
+         if (! ("upnp".equals(fileUri.getScheme()) || "http".equals(fileUri.getScheme())) ) { // no delete with upnp or http
+             if (log.isDebugEnabled()) log.debug("deleteFileAndAssociatedFiles: {}", fileUri);
+             new Thread() {
+@@ -404,6 +429,13 @@ public class Delete {
+     }
+ 
+     public void deleteLocalFilesAndAssociatedFiles(Context context, List<Uri> fileUris) {
++        if (READ_ONLY_SOURCES) {
++            if (fileUris != null && !fileUris.isEmpty()) {
++                counter = 1;
++                deleteNOK(fileUris.get(0));
++            }
++            return;
++        }
+         if (log.isDebugEnabled()) log.debug("deleteLocalFilesAndAssociatedFiles: {}", fileUris);
+         new Thread() {
+             public void run() {
+@@ -473,6 +505,11 @@ public class Delete {
+     }
+ 
+     public void deleteFolder(final Uri uri){
++        if (READ_ONLY_SOURCES) {
++            counter = 1;
++            deleteNOK(uri);
++            return;
++        }
+         if (log.isDebugEnabled()) log.debug("deleteFolder: {}", uri);
+         new Thread(){
+             public void run() {
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/adapters/object/Video.java b/src/main/java/com/archos/mediacenter/video/browser/adapters/object/Video.java
+index adf236c..29e0b5c 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/adapters/object/Video.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/adapters/object/Video.java
+@@ -280,12 +280,8 @@ public class Video extends Base implements Serializable {
+      * @return
+      */
+     public boolean locationSupportsDelete() {
+-        Uri fileUri = getFileUri();
+-        if (fileUri == null) return false;
+-        if ("upnp".equals(fileUri.getScheme())) {
+-            return false;
+-        }
+-        return true;
++        // media sources are read-only, the player never deletes videos
++        return false;
+     }
+ 
+     /**
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/filebrowsing/BrowserByFolder.java b/src/main/java/com/archos/mediacenter/video/browser/filebrowsing/BrowserByFolder.java
+index 2389633..8056bdd 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/filebrowsing/BrowserByFolder.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/filebrowsing/BrowserByFolder.java
+@@ -600,9 +600,7 @@ abstract public class BrowserByFolder extends BrowserByVideoObjects implements
+         }
+         Object item = mFilesAdapter.getItem(info.position);
+         if (item instanceof MetaFile2) {
+-            menu.setHeaderTitle(((MetaFile2) item).getName());
+-            if (((MetaFile2) item).canWrite())
+-                menu.add(0, R.string.delete, 0, R.string.delete);
++            // media sources are read-only: no file operations on folders
+             return;
+         }
+         super.onCreateContextMenu(menu,v, menuInfo);
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java b/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java
+index 5517e42..3653aa0 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/tools/MultipleSelectionManager.java
+@@ -68,8 +68,6 @@ public class MultipleSelectionManager implements ActionMode.Callback {
+ 
+     @Override
+     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+-        menu.add(0, R.string.delete, 0,R.string.delete).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+-        menu.add(0,R.string.copy_on_device_multi, 0,R.string.copy_on_device_multi).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+         menu.add(0, R.string.video_browser_unindex_file, 0, R.string.video_browser_unindex_file).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+         menu.add(0, R.string.video_browser_index_file, 0, R.string.video_browser_index_file).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+         menu.add(0, R.string.mark_as_watched, 0, R.string.mark_as_watched).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+@@ -80,7 +78,6 @@ public class MultipleSelectionManager implements ActionMode.Callback {
+ 
+     @Override
+     public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+-        menu.findItem(R.string.delete).setVisible(mArchosGridView.getCheckedItemCount() > 0);
+         boolean areNotLocal =true;
+         boolean areFiles = true;
+         boolean areAllIndexed = true;
+@@ -154,7 +151,6 @@ public class MultipleSelectionManager implements ActionMode.Callback {
+ 
+         menu.findItem(R.string.video_browser_unindex_file).setVisible(areAllIndexed&&mArchosGridView.getCheckedItemCount() > 0);
+         menu.findItem(R.string.video_browser_index_file).setVisible(!areAllIndexed && areFiles && areNotLocal);
+-        menu.findItem(R.string.copy_on_device_multi).setVisible(areNotLocal);
+         menu.findItem(R.string.mark_as_not_watched).setVisible(markAsUnWatched);
+         menu.findItem(R.string.mark_as_watched).setVisible(markAsWatched);
+         return true;
+diff --git a/src/main/java/com/archos/mediacenter/video/cover/CoverRoll3DVideo.java b/src/main/java/com/archos/mediacenter/video/cover/CoverRoll3DVideo.java
+index b9ae270..1f0b73d 100644
+--- a/src/main/java/com/archos/mediacenter/video/cover/CoverRoll3DVideo.java
++++ b/src/main/java/com/archos/mediacenter/video/cover/CoverRoll3DVideo.java
+@@ -306,46 +306,6 @@ public class CoverRoll3DVideo extends CoverRoll3D {
+ 				}});
+ 		}
+ 
+-		//Delete
+-		menu.add(R.string.delete).setOnMenuItemClickListener(new OnMenuItemClickListener() {
+-			public boolean onMenuItemClick(MenuItem item) {
+-				// Forbid deleting in DemoMode
+-				if (ArchosSettings.isDemoModeActive(mActivity)) {
+-					mActivity.startService(new Intent(ArchosIntents.ACTION_DEMO_MODE_FEATURE_DISABLED));
+-				} else {
+-					AlertDialog.Builder b = new AlertDialog.Builder(activity).setTitle("");
+-					b.setIcon(R.drawable.filetype_new_video);
+-					b.setMessage(R.string.confirm_delete);
+-					b.setNegativeButton(R.string.no, null)
+-							.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
+-								@Override
+-								public void onClick(DialogInterface dialogInterface, int i) {
+-									final DeleteDialog deleteDialog = new DeleteDialog();
+-									deleteDialog.show(((FragmentActivity) mActivity).getSupportFragmentManager(), null);
+-									Delete delete = new Delete(new Delete.DeleteListener() {
+-										@Override
+-										public void onVideoFileRemoved(Uri videoFile, boolean b, Uri u ) {}
+-										@Override
+-										public void onDeleteVideoFailed(Uri videoFile) {
+-											deleteDialog.dismiss();
+-											Toast.makeText(getContext(), R.string.delete_error, Toast.LENGTH_LONG).show();
+-										}
+-										@Override
+-										public void onDeleteSuccess() {
+-											deleteDialog.dismiss();
+-											Toast.makeText(getContext(), R.string.delete_done, Toast.LENGTH_LONG).show();
+-										}
+-										@Override
+-										public void onFolderRemoved(Uri folder) {}
+-									}, activity);
+-									delete.startDeleteProcess(Uri.parse(((BaseVideoCover) c).getFilePath()));
+-								}
+-							}).show();
+-				}
+-				return true;
+-			}
+-		});
+-
+         //Subtitles wizard
+         menu.add(R.string.get_subtitles_on_drive).setOnMenuItemClickListener(new OnMenuItemClickListener() {
+             public boolean onMenuItemClick(MenuItem item) {
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 7bbc5a6..7857d58 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -924,9 +924,6 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+                 setFileInfo(mVideoMetadateCache.get(video.getFilePath()));
+             }
+             updateGenericButtonAction();
+-            if(!mCurrentVideo.isLocalFile()&&UriUtils.isImplementedByFileCore(mCurrentVideo.getFileUri()))
+-                addMenu(0,R.string.copy_on_device,0,R.string.copy_on_device);
+-
+             if (video.isIndexed()) {
+                 goToIndexed();
+                 if (video.hasScraperData()) {
+@@ -938,8 +935,6 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+                 goToNotIndexed();
+                 requestIndexAndScrap();
+             }
+-            if(!mIsLaunchFromPlayer && mCurrentVideo.locationSupportsDelete())
+-                addMenu(0, R.string.delete, DELETE_GROUP, R.string.delete);
+         } else {
+             if (log.isDebugEnabled()) log.debug("setCurrentVideo: should not change video");
+         }
+@@ -1105,7 +1100,6 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+ 
+         addMenu(0, R.string.info_menu_backdrop_select, 0, R.string.info_menu_backdrop_select);
+         addMenu(0, R.string.info_menu_poster_select, 0, R.string.info_menu_poster_select);
+-        addMenu(0, R.string.nfo_export_button, 0, R.string.nfo_export_button);
+         addMenu(0, R.string.scrap_remove, DELETE_GROUP, R.string.scrap_remove);
+     }
+ 
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/collections/CollectionActionAdapter.java b/src/main/java/com/archos/mediacenter/video/leanback/collections/CollectionActionAdapter.java
+index 24edee9..13ea1eb 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/collections/CollectionActionAdapter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/collections/CollectionActionAdapter.java
+@@ -46,13 +46,9 @@ public class CollectionActionAdapter extends SparseArrayObjectAdapter {
+     }
+ 
+     public void update(Collection collection, boolean displayConfirmDelete) {
+-        if (!displayConfirmDelete) {
+-            clear(ACTION_CONFIRM_DELETE);
+-            set(ACTION_DELETE, new Action(ACTION_DELETE, mContext.getString(R.string.delete)));
+-        } else {
+-            clear(ACTION_DELETE);
+-            set(ACTION_CONFIRM_DELETE, new Action(ACTION_CONFIRM_DELETE, mContext.getString(R.string.confirm_delete_short)));
+-        }
++        // media sources are read-only: deleting a whole collection from disk is not offered
++        clear(ACTION_DELETE);
++        clear(ACTION_CONFIRM_DELETE);
+         if (collection.isWatched()) {
+             clear(ACTION_MARK_COLLECTION_AS_WATCHED);
+             set(ACTION_MARK_COLLECTION_AS_NOT_WATCHED, new Action(ACTION_MARK_COLLECTION_AS_NOT_WATCHED, mContext.getString(R.string.mark_as_not_watched)));
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
+index ff629f9..7c92ec8 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/tvshow/TvshowActionAdapter.java
+@@ -57,7 +57,6 @@ public class TvshowActionAdapter extends SparseArrayObjectAdapter {
+         }
+         set(ACTION_UNINDEX, new Action(ACTION_UNINDEX, context.getString(R.string.video_browser_unindex_file)));
+         set(ACTION_CHANGE_INFO, new Action(ACTION_CHANGE_INFO, context.getString(R.string.scrap_change)));
+-        set(ACTION_DELETE, new Action(ACTION_DELETE, context.getString(R.string.delete)));
+         update(tvshow);
+     }
+ 
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/SubtitlesWizardCommon.java b/src/main/java/com/archos/mediacenter/video/utils/SubtitlesWizardCommon.java
+index db2d672..c9c31f8 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/SubtitlesWizardCommon.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/SubtitlesWizardCommon.java
+@@ -260,13 +260,19 @@ public class SubtitlesWizardCommon {
+         FileEditor oldFile = FileEditorFactory.getFileEditorForUrl(oldUri, getActivity());
+         Uri newUri = Uri.parse(newFilePath);
+         String newName = FileUtils.getName(newUri);
+-        // Rename the file
++        // Media sources are read-only: never rename the subtitle on the drive, associate it with
++        // the video by copying it under the video name into the private subtitles cache instead
++        File privateCopy = new File(MediaUtils.getSubsDir(getActivity()), newName);
+         try {
+-            fileRenamed = oldFile.rename(newName);
+-            if (log.isDebugEnabled()) log.debug("onItemClick : selected file renamed as {}", newFilePath);
++            fileRenamed = oldFile.copyFileTo(Uri.fromFile(privateCopy), getActivity());
++            if (fileRenamed) {
++                newUri = Uri.fromFile(privateCopy);
++                newFilePath = newUri.toString();
++            }
++            if (log.isDebugEnabled()) log.debug("renameFile : selected file associated as {}", newFilePath);
+         }
+         catch (Exception e) {
+-            if (log.isDebugEnabled()) log.debug("renameFile : can not rename file as {}", newFilePath);
++            if (log.isDebugEnabled()) log.debug("renameFile : can not associate file as {}", privateCopy);
+         }
+ 
+         String cacheDirPath = Uri.fromFile(MediaUtils.getSubsDir(getActivity())).toString();
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java b/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java
+index 34ba1ac..31ddc05 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java
+@@ -1172,13 +1172,8 @@ public class VideoPreferencesCommon implements OnSharedPreferenceChangeListener
+         mSmbj = (CheckBoxPreference) findPreference(KEY_SMBJ);
+ 
+         mScraperCategory = (PreferenceCategory) findPreference(KEY_SCRAPER_CATEGORY);
++        // NFO export writes next to the videos: removed, media sources are read-only
+         mExportManualPreference = findPreference(getString(R.string.nfo_export_manual_prefkey));
+-        mExportManualPreference.setOnPreferenceClickListener(preference -> {
+-            Intent intent = new Intent(AutoScrapeService.EXPORT_EVERYTHING, null, getActivity(), AutoScrapeService.class);
+-            getContext().startService(intent);
+-            Toast.makeText(getActivity(), R.string.nfo_export_in_progress, Toast.LENGTH_SHORT).show();
+-            return true;
+-        });
+ 
+         findPreference("hide_watched").setOnPreferenceChangeListener((preference, newValue) -> {
+             LoaderUtils.mMustHideWatchedVideo =  (boolean) newValue;
