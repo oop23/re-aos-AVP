@@ -60,6 +60,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
 - Stop button, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
+- Optional **cinema mode** (like YouTube's ambient mode): the bars around the picture glow softly with the colors of the scene instead of being black.
 - Brightness is never written to the system nor remembered; the brightness button is gone and the swipe is an opt-in setting on the left edge only.
 
 ### 🔊 Correct audio language

@@ -1,0 +1,332 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:57:11 +0000
+Subject: [PATCH] Player: optional cinema mode (ambient glow around the
+ picture)
+
+Like YouTube's ambient mode: a tiny, blurred copy of the current frame is
+stretched behind the video and cross-faded about once a second, so the
+letterbox bars glow with the colors of the scene. Off by default.
+---
+ res/layout/player.xml                         |   8 +
+ res/values-pl/strings.xml                     |   2 +
+ res/values/strings.xml                        |   2 +
+ res/xml/preferences_video.xml                 |   7 +
+ .../video/player/AmbientModeController.java   | 204 ++++++++++++++++++
+ .../video/player/PlayerActivity.java          |   5 +
+ 6 files changed, 228 insertions(+)
+ create mode 100644 src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java
+
+diff --git a/res/layout/player.xml b/res/layout/player.xml
+index 9e8d502..f1d82e2 100644
+--- a/res/layout/player.xml
++++ b/res/layout/player.xml
+@@ -16,6 +16,14 @@
+             android:visibility="invisible"
+     />
+ 
++    <!-- cinema mode (ambient glow), drawn behind the video, see AmbientModeController -->
++    <ImageView android:id="@+id/ambient_glow"
++            android:layout_width="match_parent"
++            android:layout_height="match_parent"
++            android:importantForAccessibility="no"
++            android:contentDescription="@null"
++            android:visibility="gone" />
++
+     <FrameLayout
+             android:layout_width="fill_parent"
+             android:layout_height="fill_parent" >
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index 8b0c643..70759e5 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1013,4 +1013,6 @@
+     <string name="renova_about_summary">Bezpieczny odtwarzacz wideo dla udziałów sieciowych: Twoje źródła są tylko do odczytu. Stuknij, aby otworzyć stronę projektu.</string>
+     <string name="renova_credits_title">Zbudowany na NOVA Video Player</string>
+     <string name="renova_credits_summary">Podziękowania dla zespołu NOVA i Archos Video Player Community Edition. ReNova to niezależny fork.</string>
++    <string name="preferences_ambient_mode">Tryb kinowy</string>
++    <string name="preferences_ambient_mode_summary">Delikatna poświata w kolorach filmu wokół obrazu zamiast czarnych pasów (jak tryb kinowy w YouTube)</string>
+ </resources>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 35c89e3..f4bbcc4 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1108,4 +1108,6 @@
+     <string name="renova_about_summary">Safe video player for network shares: your sources are read-only. Tap to open the project page.</string>
+     <string name="renova_credits_title">Built on NOVA Video Player</string>
+     <string name="renova_credits_summary">Thanks to the NOVA team and the Archos Video Player Community Edition. ReNova is an independent fork.</string>
++    <string name="preferences_ambient_mode">Cinema mode</string>
++    <string name="preferences_ambient_mode_summary">Soft glow in the colors of the video around the picture instead of black bars (like YouTube\'s ambient mode)</string>
+ </resources>
+diff --git a/res/xml/preferences_video.xml b/res/xml/preferences_video.xml
+index b7e996f..1b0d834 100644
+--- a/res/xml/preferences_video.xml
++++ b/res/xml/preferences_video.xml
+@@ -32,6 +32,13 @@
+             android:summary="@string/preferences_brightness_gesture_summary"
+             android:title="@string/preferences_brightness_gesture"
+             app:iconSpaceReserved="false"/>
++        <CheckBoxPreference
++            android:defaultValue="false"
++            android:key="player_ambient_mode"
++            android:persistent="true"
++            android:summary="@string/preferences_ambient_mode_summary"
++            android:title="@string/preferences_ambient_mode"
++            app:iconSpaceReserved="false"/>
+         <CheckBoxPreference
+             android:defaultValue="false"
+             android:key="force_software_decoding"
+diff --git a/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java b/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java
+new file mode 100644
+index 0000000..d22e0a2
+--- /dev/null
++++ b/src/main/java/com/archos/mediacenter/video/player/AmbientModeController.java
+@@ -0,0 +1,204 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediacenter.video.player;
++
++import android.content.SharedPreferences;
++import android.graphics.Bitmap;
++import android.graphics.RenderEffect;
++import android.graphics.Shader;
++import android.graphics.drawable.BitmapDrawable;
++import android.graphics.drawable.ColorDrawable;
++import android.graphics.drawable.Drawable;
++import android.graphics.drawable.TransitionDrawable;
++import android.os.Build;
++import android.os.Handler;
++import android.os.HandlerThread;
++import android.os.Looper;
++import android.view.PixelCopy;
++import android.view.SurfaceView;
++import android.view.TextureView;
++import android.view.View;
++import android.widget.ImageView;
++
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++/**
++ * Optional "cinema mode" (YouTube's ambient mode): the bars around the picture glow with the
++ * colors of the video instead of being black.
++ *
++ * A tiny copy of the current frame is taken about once a second, blurred and stretched behind the
++ * video, then cross-faded so the glow follows the scene softly. Only pixels already on screen are
++ * read; nothing is stored.
++ */
++public final class AmbientModeController {
++
++    private static final Logger log = LoggerFactory.getLogger(AmbientModeController.class);
++
++    public static final String KEY_AMBIENT_MODE = "player_ambient_mode";
++
++    private static final long CAPTURE_INTERVAL_MS = 700;
++    private static final int CROSSFADE_MS = 650;
++    private static final int SAMPLE_WIDTH = 32;
++    private static final float GLOW_ALPHA = 0.55f;
++
++    private final ImageView mGlowView;
++    private final SurfaceController mSurfaceController;
++    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
++    private HandlerThread mCopyThread;
++    private Handler mCopyHandler;
++    private boolean mRunning;
++    private boolean mCopyPending;
++    private Drawable mCurrent;
++
++    public AmbientModeController(ImageView glowView, SurfaceController surfaceController) {
++        mGlowView = glowView;
++        mSurfaceController = surfaceController;
++        mGlowView.setScaleType(ImageView.ScaleType.FIT_XY);
++        mGlowView.setAlpha(GLOW_ALPHA);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
++            mGlowView.setRenderEffect(RenderEffect.createBlurEffect(48f, 48f, Shader.TileMode.CLAMP));
++        }
++    }
++
++    public static boolean isEnabled(SharedPreferences prefs) {
++        return prefs.getBoolean(KEY_AMBIENT_MODE, false);
++    }
++
++    /** Start or stop following the video, depending on the preference. */
++    public void update(SharedPreferences prefs) {
++        if (isEnabled(prefs)) start();
++        else stop();
++    }
++
++    public void start() {
++        if (mRunning || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return;
++        mRunning = true;
++        mCopyThread = new HandlerThread("AmbientMode");
++        mCopyThread.start();
++        mCopyHandler = new Handler(mCopyThread.getLooper());
++        mGlowView.setVisibility(View.VISIBLE);
++        mMainHandler.post(mCapture);
++    }
++
++    public void stop() {
++        if (!mRunning) {
++            mGlowView.setVisibility(View.GONE);
++            return;
++        }
++        mRunning = false;
++        mMainHandler.removeCallbacks(mCapture);
++        mCopyPending = false;
++        if (mCopyThread != null) {
++            mCopyThread.quitSafely();
++            mCopyThread = null;
++            mCopyHandler = null;
++        }
++        mGlowView.setImageDrawable(null);
++        mCurrent = null;
++        mGlowView.setVisibility(View.GONE);
++    }
++
++    private final Runnable mCapture = new Runnable() {
++        @Override
++        public void run() {
++            if (!mRunning) return;
++            mMainHandler.postDelayed(this, CAPTURE_INTERVAL_MS);
++            if (mCopyPending) return;
++            View video = mSurfaceController.getView();
++            if (video == null || video.getVisibility() != View.VISIBLE
++                    || video.getWidth() <= 0 || video.getHeight() <= 0) return;
++            int w = SAMPLE_WIDTH;
++            int h = Math.max(4, Math.round(SAMPLE_WIDTH * video.getHeight() / (float) video.getWidth()));
++            try {
++                if (video instanceof TextureView) {
++                    Bitmap frame = ((TextureView) video).getBitmap(w, h);
++                    if (frame != null) show(frame);
++                } else if (video instanceof SurfaceView && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++                    SurfaceView surfaceView = (SurfaceView) video;
++                    if (!surfaceView.getHolder().getSurface().isValid() || mCopyHandler == null) return;
++                    final Bitmap frame = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
++                    mCopyPending = true;
++                    PixelCopy.request(surfaceView, frame, result -> {
++                        mMainHandler.post(() -> {
++                            mCopyPending = false;
++                            if (mRunning && result == PixelCopy.SUCCESS) show(frame);
++                            else frame.recycle();
++                        });
++                    }, mCopyHandler);
++                }
++            } catch (IllegalArgumentException | IllegalStateException e) {
++                // surface not ready (or protected content): try again on the next tick
++                mCopyPending = false;
++                log.debug("capture: {}", e.getMessage());
++            }
++        }
++    };
++
++    private void show(Bitmap frame) {
++        Bitmap glow = soften(frame);
++        if (glow != frame) frame.recycle();
++        BitmapDrawable next = new BitmapDrawable(mGlowView.getResources(), glow);
++        next.setFilterBitmap(true);
++        Drawable previous = mCurrent != null ? mCurrent : new ColorDrawable(0);
++        TransitionDrawable fade = new TransitionDrawable(new Drawable[] { previous, next });
++        fade.setCrossFadeEnabled(true);
++        mGlowView.setImageDrawable(fade);
++        fade.startTransition(CROSSFADE_MS);
++        mCurrent = next;
++    }
++
++    /**
++     * A tiny frame stretched to full screen shows blocks: blur it a little at a slightly larger
++     * size so the stretch gives smooth gradients even without RenderEffect (before Android 12).
++     */
++    private static Bitmap soften(Bitmap frame) {
++        Bitmap big = Bitmap.createScaledBitmap(frame, frame.getWidth() * 2, frame.getHeight() * 2, true);
++        int w = big.getWidth(), h = big.getHeight();
++        int[] px = new int[w * h];
++        big.getPixels(px, 0, w, 0, 0, w, h);
++        boxBlur(px, w, h, 3);
++        boxBlur(px, w, h, 3);
++        big.setPixels(px, 0, w, 0, 0, w, h);
++        return big;
++    }
++
++    /** Separable box blur, horizontal then vertical, edges clamped. */
++    static void boxBlur(int[] px, int w, int h, int r) {
++        int[] tmp = new int[px.length];
++        blurPass(px, tmp, w, h, r, true);
++        blurPass(tmp, px, w, h, r, false);
++    }
++
++    private static void blurPass(int[] src, int[] dst, int w, int h, int r, boolean horizontal) {
++        int lines = horizontal ? h : w;
++        int len = horizontal ? w : h;
++        int n = 2 * r + 1;
++        for (int line = 0; line < lines; line++) {
++            for (int i = 0; i < len; i++) {
++                int a = 0, red = 0, g = 0, b = 0;
++                for (int k = -r; k <= r; k++) {
++                    int j = Math.min(len - 1, Math.max(0, i + k));
++                    int c = horizontal ? src[line * w + j] : src[j * w + line];
++                    a += c >>> 24;
++                    red += (c >> 16) & 0xff;
++                    g += (c >> 8) & 0xff;
++                    b += c & 0xff;
++                }
++                int out = ((a / n) << 24) | ((red / n) << 16) | ((g / n) << 8) | (b / n);
++                if (horizontal) dst[line * w + i] = out;
++                else dst[i * w + line] = out;
++            }
++        }
++    }
++}
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index e70b56b..5144a2e 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -75,6 +75,7 @@ import android.view.Window;
+ import android.view.WindowInsets;
+ import android.view.WindowManager;
+ import android.view.WindowMetrics;
++import android.widget.ImageView;
+ import android.widget.ArrayAdapter;
+ import android.widget.Checkable;
+ import android.widget.CompoundButton;
+@@ -357,6 +358,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+     private Context mContext;
+ 
+     private View                mRootView;
++    private AmbientModeController mAmbientMode;
+     private PlayerController    mPlayerController;
+     private View                mPlayerControllerPlaceholder;
+     private Player              mPlayer;
+@@ -802,6 +804,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+         mSurfaceController.mCutBothSidesX = cutBothSidesX;
+ 
+         mSurfaceController.setListener(mSurfaceListener);
++        mAmbientMode = new AmbientModeController((ImageView) findViewById(R.id.ambient_glow), mSurfaceController);
+ 
+         View menuAnchor = mRootView.findViewById(R.id.menu_anchor);
+         mProgressView = mRootView.findViewById(R.id.progress_indicator);
+@@ -1130,6 +1133,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+             registerReceiver(mClockReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
+         }
+         PlayerBrightnessManager.getInstance().restoreBrightness(this);
++        if (mAmbientMode != null) mAmbientMode.update(mPreferences);
+         if(!mWasInPictureInPicture){
+             mPermissionChecker.checkAndRequestPermission(this);
+             if (!isFinishing() && !isDestroyed()) {
+@@ -1171,6 +1175,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+         if (isFinishing() && !mLaunchFloatingPlayer && mPlayer != null) mPlayer.beginPlaybackExit();
+         super.onPause();
+         if (log.isDebugEnabled()) log.debug("onPause");
++        if (mAmbientMode != null) mAmbientMode.stop();
+ 
+         // Clock (for leanback devices only)
+         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK) || isChromeOS(mContext)) {

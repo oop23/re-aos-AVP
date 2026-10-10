@@ -36,6 +36,8 @@ ReNova reads the track title (`Lektor PL`, `Dubbing`, `Polski`…) and the relea
 - Brightness swipe (left edge) is off by default: *Settings → Player → Brightness swipe*.
   It only affects the current video and never changes the system brightness.
 - Stop: in the player menu.
+- Cinema mode (glow in the colors of the video around the picture, like YouTube's ambient mode):
+  *Settings → Player → Cinema mode*.
 
 ## Can I install ReNova next to NOVA?
 Yes. ReNova uses its own package (`io.github.oop23.renova`) and its own database.
@@ -85,6 +87,8 @@ ReNova czyta nazwę ścieżki (`Lektor PL`, `Dubbing`, `Polski`…) i nazwę wyd
 - Jasność (lewa krawędź) jest domyślnie wyłączona: *Ustawienia → Odtwarzacz → Gest jasności*.
   Działa tylko dla bieżącego filmu i nigdy nie zmienia jasności systemu.
 - Stop: w menu odtwarzacza.
+- Tryb kinowy (poświata w kolorach filmu wokół obrazu, jak w YouTube):
+  *Ustawienia → Odtwarzacz → Tryb kinowy*.
 
 ## Czy ReNova działa obok NOVA?
 Tak. ReNova ma własny pakiet (`io.github.oop23.renova`) i własną bazę danych.
