@@ -49,7 +49,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **No more Japanese-only texts**: when TMDb has no translation in your language, titles and plots fall back to English instead of the original 葬送のフリーレン with an empty plot.
 
 ### 🏷️ Where the info comes from
-- Next to the TMDb / IMDb logos, details show the **AniList** logo when AniList identified the anime, an **NFO** badge when the info was read from an `.nfo` file, and **Your edits** when you changed it.
+- Next to the TMDb / IMDb logos, details show the **AniList** logo (and a **MAL** link) when AniList identified the anime, opening the show on anilist.co / myanimelist.net, an **NFO** badge when the info was read from an `.nfo` file, and **Your edits** when you changed it.
 
 ### 🖼️ Sharper artwork
 - Artwork picked the Kodi way: textless backdrops first (no title printed under the UI text), posters in your language, then English, then textless; ratings weighted by their number of votes.
@@ -89,9 +89,8 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Separate package `io.github.oop23.renova` with its own content providers: **installs next to the original NOVA**.
 
 ### Roadmap
-- Deeper anime support: AniList/MyAnimeList ids and links.
-- Better poster/backdrop selection and image quality, nicer blur effects.
-- Further mobile UI modernization (browse screens).
+- Further mobile UI modernization of the browse screens.
+- Merging libraries that were already indexed twice under a server name and its IP.
 
 ## Versions
 

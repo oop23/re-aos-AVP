@@ -1,0 +1,184 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:19:39 +0000
+Subject: [PATCH] Keep the AniList and MyAnimeList ids of identified anime
+
+---
+ src/com/archos/mediascraper/DataSources.java  | 25 ++++++++++++++++-
+ .../mediascraper/anilist/AniListClient.java   | 27 ++++++++++++++++++-
+ .../mediascraper/themoviedb3/SearchShow.java  |  9 ++++---
+ .../themoviedb3/SearchShowParser.java         |  3 ++-
+ .../anilist/AniListClientTest.java            |  8 ++++++
+ 5 files changed, 65 insertions(+), 7 deletions(-)
+
+diff --git a/src/com/archos/mediascraper/DataSources.java b/src/com/archos/mediascraper/DataSources.java
+index 0ae4c56..eda445d 100644
+--- a/src/com/archos/mediascraper/DataSources.java
++++ b/src/com/archos/mediascraper/DataSources.java
+@@ -29,17 +29,40 @@ public final class DataSources {
+     private static final String PREFS = "data_sources";
+     private static final String ANILIST_SHOW = "anilist:show:";
+     private static final String NFO = "nfo:";
++    private static final String ANILIST_ID = "anilist:id:";
++    private static final String MAL_ID = "mal:id:";
+ 
+     private DataSources() {}
+ 
+     /** The TMDb show was found or confirmed through AniList titles. */
+     public static void markAniListShow(long tmdbShowId) {
++        markAniListShow(tmdbShowId, 0, 0);
++    }
++
++    /** Same, remembering the AniList and MyAnimeList ids (0 when unknown) for direct links. */
++    public static void markAniListShow(long tmdbShowId, int aniListId, int malId) {
+         if (tmdbShowId <= 0) return;
+         Context context = ArchosUtils.getGlobalContext();
+         if (context == null) return;
+         SharedPreferences prefs = prefs(context);
++        SharedPreferences.Editor editor = null;
+         String key = ANILIST_SHOW + tmdbShowId;
+-        if (!prefs.getBoolean(key, false)) prefs.edit().putBoolean(key, true).apply();
++        if (!prefs.getBoolean(key, false)) (editor = prefs.edit()).putBoolean(key, true);
++        if (aniListId > 0 && prefs.getInt(ANILIST_ID + tmdbShowId, 0) != aniListId)
++            (editor = editor != null ? editor : prefs.edit()).putInt(ANILIST_ID + tmdbShowId, aniListId);
++        if (malId > 0 && prefs.getInt(MAL_ID + tmdbShowId, 0) != malId)
++            (editor = editor != null ? editor : prefs.edit()).putInt(MAL_ID + tmdbShowId, malId);
++        if (editor != null) editor.apply();
++    }
++
++    /** AniList id of the show, 0 when unknown. */
++    public static int aniListId(Context context, long tmdbShowId) {
++        return tmdbShowId > 0 ? prefs(context).getInt(ANILIST_ID + tmdbShowId, 0) : 0;
++    }
++
++    /** MyAnimeList id of the show, 0 when unknown. */
++    public static int malId(Context context, long tmdbShowId) {
++        return tmdbShowId > 0 ? prefs(context).getInt(MAL_ID + tmdbShowId, 0) : 0;
+     }
+ 
+     public static boolean isAniListShow(Context context, long tmdbShowId) {
+diff --git a/src/com/archos/mediascraper/anilist/AniListClient.java b/src/com/archos/mediascraper/anilist/AniListClient.java
+index bf30eb4..d377aa2 100644
+--- a/src/com/archos/mediascraper/anilist/AniListClient.java
++++ b/src/com/archos/mediascraper/anilist/AniListClient.java
+@@ -53,6 +53,8 @@ public final class AniListClient {
+                     + " id idMal title { romaji english native } synonyms seasonYear format } } }";
+ 
+     private static final LruCache<String, List<String>> sCache = new LruCache<>(200);
++    // AniList and MyAnimeList ids of the best match, for links on the details screens
++    private static final LruCache<String, int[]> sIdCache = new LruCache<>(200);
+     private static volatile OkHttpClient sClient;
+ 
+     private AniListClient() {}
+@@ -94,7 +96,9 @@ public final class AniListClient {
+                     .build();
+             try (Response response = client().newCall(request).execute()) {
+                 if (response.isSuccessful() && response.body() != null) {
+-                    titles = parseTitles(response.body().string());
++                    String json = response.body().string();
++                    titles = parseTitles(json);
++                    sIdCache.put(key, parseIds(json));
+                 } else {
+                     log.warn("alternateTitles: AniList answered {} for {}", response.code(), query);
+                     return titles; // do not cache transient failures (rate limit, outage)
+@@ -109,6 +113,27 @@ public final class AniListClient {
+         return titles;
+     }
+ 
++    /**
++     * {AniList id, MyAnimeList id} (0 when unknown) of the best match of a query already resolved
++     * by {@link #alternateTitles}; never goes to the network.
++     */
++    public static int[] knownIds(String query) {
++        if (query == null) return new int[] { 0, 0 };
++        int[] ids = sIdCache.get(query.trim().toLowerCase(Locale.ROOT));
++        return ids != null ? ids : new int[] { 0, 0 };
++    }
++
++    /** {AniList id, MyAnimeList id} of the best match, 0 when unknown. Package visible for tests. */
++    static int[] parseIds(String json) throws JSONException {
++        JSONObject root = new JSONObject(json);
++        JSONObject data = root.optJSONObject("data");
++        JSONObject page = data == null ? null : data.optJSONObject("Page");
++        JSONArray media = page == null ? null : page.optJSONArray("media");
++        if (media == null || media.length() == 0) return new int[] { 0, 0 };
++        JSONObject best = media.getJSONObject(0);
++        return new int[] { best.optInt("id", 0), best.optInt("idMal", 0) };
++    }
++
+     /** Parses an AniList answer into the titles of its best match. Package visible for tests. */
+     static List<String> parseTitles(String json) throws JSONException {
+         JSONObject root = new JSONObject(json);
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShow.java b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+index ab313cf..be5155b 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShow.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+@@ -182,7 +182,7 @@ public class SearchShow {
+                     myResult.result = SearchShowParser.getResult(
+                             (isResponseOk) ? response : null,
+                             searchInfo, year, language, resultLimit, showScraper);
+-                    if (foundThroughAniList) markAniList(myResult.result);
++                    if (foundThroughAniList) markAniList(myResult.result, searchQueryString);
+                     if ((myResult.result == null || myResult.result.isEmpty())
+                             && SearchShowParser.isAnimePath(searchInfo.getFile())) {
+                         // every result was rejected as not being the anime: search TMDb again under
+@@ -195,7 +195,7 @@ public class SearchShow {
+                                 if (log.isDebugEnabled()) log.debug("search: anime retry with AniList title {} in {}", alternateTitle, lang);
+                                 myResult.result = SearchShowParser.getResult(retry, searchInfo, year, lang, resultLimit, showScraper);
+                                 if (myResult.result != null && !myResult.result.isEmpty()) {
+-                                    markAniList(myResult.result);
++                                    markAniList(myResult.result, searchQueryString);
+                                     break;
+                                 }
+                             }
+@@ -219,9 +219,10 @@ public class SearchShow {
+         return myResult;
+     }
+ 
+-    private static void markAniList(List<SearchResult> results) {
++    private static void markAniList(List<SearchResult> results, String query) {
+         if (results == null) return;
+-        for (SearchResult result : results) com.archos.mediascraper.DataSources.markAniListShow(result.getId());
++        int[] ids = AniListClient.knownIds(query);
++        for (SearchResult result : results) com.archos.mediascraper.DataSources.markAniListShow(result.getId(), ids[0], ids[1]);
+     }
+ 
+     public static void debugLruCache(LruCache<String, Response<TvShowResultsPage>> lruCache) {
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+index edb49af..6f6a5d0 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShowParser.java
+@@ -97,7 +97,8 @@ public class SearchShowParser {
+                         continue;
+                     }
+                     // AniList confirmed this one: credit it on the details screens
+-                    com.archos.mediascraper.DataSources.markAniListShow(series.id);
++                    int[] aniListIds = com.archos.mediascraper.anilist.AniListClient.knownIds(searchInfo.getShowName());
++                    com.archos.mediascraper.DataSources.markAniListShow(series.id, aniListIds[0], aniListIds[1]);
+                 }
+                 Bundle extra = new Bundle();
+                 extra.putString(ShowUtils.EPNUM, String.valueOf(searchInfo.getEpisode()));
+diff --git a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+index 2fcc86d..8e9dc1c 100644
+--- a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
++++ b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+@@ -12,6 +12,7 @@
+ 
+ package com.archos.mediascraper.anilist;
+ 
++import static org.junit.Assert.assertArrayEquals;
+ import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertTrue;
+ 
+@@ -49,4 +50,11 @@ public class AniListClientTest {
+         assertTrue(AniListClient.parseTitles("{\"data\":{\"Page\":{\"media\":[]}}}").isEmpty());
+         assertTrue(AniListClient.parseTitles("{\"errors\":[{\"message\":\"Too Many Requests\"}],\"data\":null}").isEmpty());
+     }
++
++    @Test
++    public void idsOfTheBestMatch() throws Exception {
++        String json = "{\"data\":{\"Page\":{\"media\":[{\"id\":154587,\"idMal\":52991,\"title\":{\"romaji\":\"Sousou no Frieren\"}}]}}}";
++        assertArrayEquals(new int[] { 154587, 52991 }, AniListClient.parseIds(json));
++        assertArrayEquals(new int[] { 0, 0 }, AniListClient.parseIds("{\"data\":{\"Page\":{\"media\":[]}}}"));
++    }
+ }

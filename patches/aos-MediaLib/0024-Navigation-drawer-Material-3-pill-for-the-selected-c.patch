@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:20:09 +0000
+Subject: [PATCH] Navigation drawer: Material 3 pill for the selected category
+
+---
+ .../category_item_background_normal.xml       | 30 ++++++++++++++-----
+ res/drawable/list_selector_drawer.xml         | 13 ++++++++
+ 2 files changed, 36 insertions(+), 7 deletions(-)
+ create mode 100644 res/drawable/list_selector_drawer.xml
+
+diff --git a/res/drawable-v21/category_item_background_normal.xml b/res/drawable-v21/category_item_background_normal.xml
+index b483e67..97e5c7e 100644
+--- a/res/drawable-v21/category_item_background_normal.xml
++++ b/res/drawable-v21/category_item_background_normal.xml
+@@ -1,14 +1,30 @@
+ <?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: Material 3 navigation drawer item, the selected one is a rounded pill -->
+ <ripple xmlns:android="http://schemas.android.com/apk/res/android"
+-    android:color="@android:color/white" >
++    android:color="#33FFFFFF">
++
++    <item android:id="@android:id/mask">
++        <inset android:insetLeft="12dp" android:insetRight="12dp" android:insetTop="2dp" android:insetBottom="2dp">
++            <shape android:shape="rectangle">
++                <corners android:radius="24dp" />
++                <solid android:color="@android:color/white" />
++            </shape>
++        </inset>
++    </item>
+ 
+     <item>
+-        <selector
+-            xmlns:android="http://schemas.android.com/apk/res/android" android:exitFadeDuration="0" >
+-            <item android:state_pressed="true" android:drawable="@color/ui_selector" />
+-            <item android:state_activated="true" android:drawable="@color/ui_selector" />
+-            <item android:drawable="@android:color/transparent"/>
++        <selector android:exitFadeDuration="150">
++            <item android:state_activated="true">
++                <inset android:insetLeft="12dp" android:insetRight="12dp" android:insetTop="2dp" android:insetBottom="2dp">
++                    <shape android:shape="rectangle">
++                        <corners android:radius="24dp" />
++                        <solid android:color="#3A2B8C" />
++                        <stroke android:width="1dp" android:color="#40FFD27A" />
++                    </shape>
++                </inset>
++            </item>
++            <item android:drawable="@android:color/transparent" />
+         </selector>
+     </item>
+ 
+-</ripple>
+\ No newline at end of file
++</ripple>
+diff --git a/res/drawable/list_selector_drawer.xml b/res/drawable/list_selector_drawer.xml
+new file mode 100644
+index 0000000..a745cfc
+--- /dev/null
++++ b/res/drawable/list_selector_drawer.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: the item draws its own selected pill; the list only shows keyboard/remote focus -->
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_focused="true">
++        <inset android:insetLeft="12dp" android:insetRight="12dp" android:insetTop="2dp" android:insetBottom="2dp">
++            <shape android:shape="rectangle">
++                <corners android:radius="24dp" />
++                <stroke android:width="2dp" android:color="#FFD27A" />
++            </shape>
++        </inset>
++    </item>
++    <item android:drawable="@android:color/transparent" />
++</selector>

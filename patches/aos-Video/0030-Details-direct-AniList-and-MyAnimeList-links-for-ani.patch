@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:19:39 +0000
+Subject: [PATCH] Details: direct AniList and MyAnimeList links for anime
+
+---
+ res/drawable/data_source_chip_mal.xml            | 10 ++++++++++
+ res/layout/video_info2_scraper.xml               |  8 ++++++++
+ .../video/info/VideoInfoActivityFragment.java    | 16 ++++++++++++++--
+ 3 files changed, 32 insertions(+), 2 deletions(-)
+ create mode 100644 res/drawable/data_source_chip_mal.xml
+
+diff --git a/res/drawable/data_source_chip_mal.xml b/res/drawable/data_source_chip_mal.xml
+new file mode 100644
+index 0000000..1dd0570
+--- /dev/null
++++ b/res/drawable/data_source_chip_mal.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- MyAnimeList link: their blue -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#40FFFFFF">
++    <item>
++        <shape android:shape="rectangle">
++            <corners android:radius="8dp" />
++            <solid android:color="#2E51A2" />
++        </shape>
++    </item>
++</ripple>
+diff --git a/res/layout/video_info2_scraper.xml b/res/layout/video_info2_scraper.xml
+index 1a8a41d..b36e2cd 100644
+--- a/res/layout/video_info2_scraper.xml
++++ b/res/layout/video_info2_scraper.xml
+@@ -109,6 +109,14 @@
+                     android:contentDescription="AniList"
+                     tools:ignore="HardcodedText" />
+ 
++                <TextView
++                    android:id="@+id/scrap_link_mal"
++                    style="@style/DataSourceChip"
++                    android:background="@drawable/data_source_chip_mal"
++                    android:text="MAL"
++                    android:contentDescription="MyAnimeList"
++                    tools:ignore="HardcodedText" />
++
+                 <TextView
+                     android:id="@+id/scrap_source_nfo"
+                     style="@style/DataSourceChip"
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index 55a4f68..31ce3b6 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -256,6 +256,9 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+     private View mTMDBIcon;
+     private View mTVDBIcon;
+     private View mAniListIcon;
++    private View mMalIcon;
++    private int mAniListId;
++    private int mMalId;
+     private View mNfoSourceChip;
+     private View mEditedSourceChip;
+     private String mAniListQuery;
+@@ -531,6 +534,8 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         mTVDBIcon.setOnClickListener(this);
+         mAniListIcon = mRoot.findViewById(R.id.scrap_link_anilist);
+         mAniListIcon.setOnClickListener(this);
++        mMalIcon = mRoot.findViewById(R.id.scrap_link_mal);
++        mMalIcon.setOnClickListener(this);
+         mNfoSourceChip = mRoot.findViewById(R.id.scrap_source_nfo);
+         mEditedSourceChip = mRoot.findViewById(R.id.scrap_source_edited);
+         mScraperPlotContainer = (CardView)mRoot.findViewById(R.id.scraper_plot_container);
+@@ -1348,8 +1353,12 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+             startActivity(it);
+             //WebUtils.openWebLink(getActivity(), imdbUrl);
+         }
+-        else if(view == mAniListIcon && mAniListQuery != null){
+-            WebUtils.openWebLink(getActivity(), "https://anilist.co/search/anime?search=" + Uri.encode(mAniListQuery));
++        else if(view == mAniListIcon && (mAniListId > 0 || mAniListQuery != null)){
++            WebUtils.openWebLink(getActivity(), mAniListId > 0 ? "https://anilist.co/anime/" + mAniListId
++                    : "https://anilist.co/search/anime?search=" + Uri.encode(mAniListQuery));
++        }
++        else if(view == mMalIcon && mMalId > 0){
++            WebUtils.openWebLink(getActivity(), "https://myanimelist.net/anime/" + mMalId);
+         }
+         else if(view == mPosterImageView){
+             if(!mCurrentVideo.hasScraperData())
+@@ -1364,6 +1373,9 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+         Context context = getContext();
+         if (context == null || mCurrentVideo == null) return;
+         mAniListIcon.setVisibility(DataSources.isAniListShow(context, tmdbShowId) ? View.VISIBLE : View.GONE);
++        mAniListId = DataSources.aniListId(context, tmdbShowId);
++        mMalId = DataSources.malId(context, tmdbShowId);
++        mMalIcon.setVisibility(mMalId > 0 ? View.VISIBLE : View.GONE);
+         mNfoSourceChip.setVisibility(DataSources.isNfo(context, mCurrentVideo.getFilePath()) ? View.VISIBLE : View.GONE);
+         boolean edited = MetadataOverrides.has(context, itemOverrideKey)
+                 || (showOverrideKey != null && MetadataOverrides.has(context, showOverrideKey));

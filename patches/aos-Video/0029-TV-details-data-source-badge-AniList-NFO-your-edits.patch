@@ -1,0 +1,111 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:18:32 +0000
+Subject: [PATCH] TV details: data source badge (AniList, NFO, your edits)
+
+---
+ res/layout/leanback_details_description.xml   | 24 +++++++++++++++++
+ .../VideoDetailsDescriptionPresenter.java     | 27 +++++++++++++++++++
+ 2 files changed, 51 insertions(+)
+
+diff --git a/res/layout/leanback_details_description.xml b/res/layout/leanback_details_description.xml
+index 3caaf3f..ce3608d 100644
+--- a/res/layout/leanback_details_description.xml
++++ b/res/layout/leanback_details_description.xml
+@@ -138,6 +138,30 @@
+             android:animateLayoutChanges="true"
+             android:orientation="horizontal">
+ 
++            <!-- ReNova: where the info comes from (AniList, NFO, your edits) -->
++            <LinearLayout
++                android:id="@+id/badge_source_container"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_gravity="center"
++                android:layout_marginStart="8dip"
++                android:visibility="gone"
++                android:background="@drawable/rounded_edges">
++
++                <TextView
++                    android:id="@+id/badge_source"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_marginStart="5dp"
++                    android:layout_marginEnd="5dp"
++                    android:layout_marginBottom="1dp"
++                    android:gravity="center_horizontal"
++                    android:textAppearance="?android:attr/textAppearanceMedium"
++                    android:textColor="@color/grid_item_background"
++                    android:textSize="@dimen/video_info_small_text"
++                    android:textStyle="bold" />
++            </LinearLayout>
++
+             <LinearLayout
+                 android:id="@+id/badge_3d_container"
+                 android:layout_width="wrap_content"
+diff --git a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java
+index f3b87ad..8a03678 100644
+--- a/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java
++++ b/src/main/java/com/archos/mediacenter/video/leanback/details/VideoDetailsDescriptionPresenter.java
+@@ -34,6 +34,9 @@ import com.archos.mediacenter.video.browser.adapters.object.Video;
+ import com.archos.mediacenter.video.player.PlayerActivity;
+ import com.archos.mediacenter.video.utils.VideoMetadata;
+ import com.archos.mediaprovider.video.VideoStore;
++import com.archos.mediascraper.DataSources;
++import com.archos.mediascraper.MetadataOverrides;
++import com.archos.mediascraper.themoviedb3.SearchShowParser;
+ 
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+@@ -70,6 +73,8 @@ public class VideoDetailsDescriptionPresenter extends Presenter {
+         final TextView mAudioBadge;
+         final View m3dBadgeContainer;
+         final TextView m3dBadge;
++        final View mSourceBadgeContainer;
++        final TextView mSourceBadge;
+         final LinearLayout mBadgesLayout;
+         final LayoutTransition mBadgesLayoutTransition;
+         private ViewTreeObserver.OnPreDrawListener mPreDrawListener;
+@@ -93,6 +98,8 @@ public class VideoDetailsDescriptionPresenter extends Presenter {
+             mAudioBadge = (TextView) view.findViewById(R.id.badge_audio);
+             m3dBadgeContainer = (View) view.findViewById(R.id.badge_3d_container);
+             m3dBadge = (TextView) view.findViewById(R.id.badge_3d);
++            mSourceBadgeContainer = view.findViewById(R.id.badge_source_container);
++            mSourceBadge = (TextView) view.findViewById(R.id.badge_source);
+ 
+             // Disallow Video Badges Animation for now, will be allowed at end of VideoDetails enter transition
+             // to prevent a huge animation glitch when VideoDetails is opened
+@@ -201,6 +208,8 @@ public class VideoDetailsDescriptionPresenter extends Presenter {
+         vh.mBody.setText(video.getDescriptionBody());
+         vh.mTraktWatched.setVisibility(video.isWatched() || video.getResumeMs() == PlayerActivity.LAST_POSITION_END ? View.VISIBLE : View.GONE);
+ 
++        bindDataSources(vh, video);
++
+         //We keep the viewholder reference only once it is bund
+         mSingleViewHolder = vh;
+ 
+@@ -214,6 +223,24 @@ public class VideoDetailsDescriptionPresenter extends Presenter {
+         }
+     }
+ 
++    /** Credit where the info comes from: AniList (anime folders), an .nfo file, the user's edits. */
++    private void bindDataSources(ViewHolder vh, Video video) {
++        if (vh.mSourceBadge == null || video == null || video.getFilePath() == null) return;
++        android.content.Context context = vh.view.getContext();
++        String path = video.getFilePath();
++        StringBuilder sources = new StringBuilder();
++        if (video instanceof Episode && SearchShowParser.isAnimePath(android.net.Uri.parse(path))) sources.append("AniList");
++        if (DataSources.isNfo(context, path)) sources.append(sources.length() > 0 ? " · " : "").append(context.getString(R.string.data_source_nfo));
++        String key = video instanceof Episode ? MetadataOverrides.episodeKey(path) : MetadataOverrides.movieKey(path);
++        if (MetadataOverrides.has(context, key)) sources.append(sources.length() > 0 ? " · " : "").append(context.getString(R.string.data_source_edited));
++        if (sources.length() == 0) {
++            vh.mSourceBadgeContainer.setVisibility(View.GONE);
++        } else {
++            vh.mSourceBadge.setText(sources.toString());
++            vh.mSourceBadgeContainer.setVisibility(View.VISIBLE);
++        }
++    }
++
+     private void setTextOrSetInvisibleIfEmpty(TextView mTextView, String text) {
+         if (text==null || text.isEmpty()) {
+             mTextView.setVisibility(View.INVISIBLE);

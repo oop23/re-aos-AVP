@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:20:10 +0000
+Subject: [PATCH] Drawer items padded for the selection pill
+
+---
+ res/layout/browser_category.xml               | 2 +-
+ res/layout/browser_category_item_shortcut.xml | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/res/layout/browser_category.xml b/res/layout/browser_category.xml
+index e6ebb70..c9684b5 100644
+--- a/res/layout/browser_category.xml
++++ b/res/layout/browser_category.xml
+@@ -11,7 +11,7 @@
+     android:dividerHeight="0dip"
+     android:divider="@null"
+     android:choiceMode="singleChoice"
+-    android:listSelector="@drawable/list_selector_categories"
++    android:listSelector="@drawable/list_selector_drawer"
+     android:paddingStart="0dip"
+     android:paddingEnd="0dip"
+     />
+diff --git a/res/layout/browser_category_item_shortcut.xml b/res/layout/browser_category_item_shortcut.xml
+index 39ff8fe..5a7be74 100644
+--- a/res/layout/browser_category_item_shortcut.xml
++++ b/res/layout/browser_category_item_shortcut.xml
+@@ -7,8 +7,8 @@
+     android:minHeight="48dip"
+     android:gravity="center_vertical"
+     android:drawablePadding="24dip"
+-    android:paddingStart="16dip"
+-    android:paddingEnd="16dip"
++    android:paddingStart="28dip"
++    android:paddingEnd="28dip"
+     android:background="@drawable/category_item_background_normal"
+ 
+     android:maxLines="2"
