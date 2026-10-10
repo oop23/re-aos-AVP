@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:25:37 +0000
+Subject: [PATCH] Network resume setting says it only reads, never writes
+
+---
+ res/values-pl/strings.xml | 2 +-
+ res/values/strings.xml    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index 55196d9..b71cdc5 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -603,7 +603,7 @@
+     <string name="network_bookmarks">Wznów punkty i zakładki pozycji w sieci</string>
+     <string name="network_thumbnails">Utwórz zdalne miniaturki</string>
+     <string name="network_thumbnails_summary">Utwórz miniaturki ze zdalnych filmów, gdy nie ma dostępnego plakatu</string>
+-    <string name="network_bookmarks_summary">Zapisz i sprawdź ponownie punkt i umiejscowienie zakładek w sieci, jeśli to możliwe</string>
++    <string name="network_bookmarks_summary">Odczytuj punkty wznowienia zostawione na udziale sieciowym przez inny odtwarzacz (ReNova nigdy nic nie zapisuje na udziałach)</string>
+     <string name="share_folders_smbj">Użyj alternatywnej implementacji SMB (SMB2+)</string>
+     <string name="share_folders_smbj_summary">Włącz alternatywną implementację SMB ograniczającą obsługę protokołu powyżej wersji 2. Ostrzeżenie: może być wolniejsze na niektórych urządzeniach.</string>
+     <string name="share_folders_sshj">Użyj nowszej implementacji SFTP</string>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 54c919a..b396244 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -665,7 +665,7 @@
+     <string name="network_bookmarks">Resume points and position bookmarks on network</string>
+     <string name="network_thumbnails">Create remote thumbnails</string>
+     <string name="network_thumbnails_summary">Create thumbnails from remote videos when no poster available</string>
+-    <string name="network_bookmarks_summary">Save and check for resume point and position bookmarks on network when possible</string>
++    <string name="network_bookmarks_summary">Read resume points another player left on the network share (ReNova never writes to your shares)</string>
+     <string name="share_folders_smbj">Use alternate SMB implementation (SMB2+)</string>
+     <string name="share_folders_smbj_summary">Enable alternate SMB implementation limiting support to protocol above version 2. Warning: can be slower on some devices.</string>
+     <string name="share_folders_sshj">Use newer SFTP implementation</string>

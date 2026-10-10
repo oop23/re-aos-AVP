@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:26:45 +0000
+Subject: [PATCH] Main screen resume card: violet card, gold play disc
+
+---
+ res/drawable/ic_play_dark.xml           | 10 ++++++++++
+ res/drawable/resume_play_button.xml     | 15 +++++++++++++++
+ res/drawable/rounded_rectangle_grey.xml |  6 ++++--
+ res/layout/browser_resume_video.xml     |  5 +++--
+ 4 files changed, 32 insertions(+), 4 deletions(-)
+ create mode 100644 res/drawable/ic_play_dark.xml
+ create mode 100644 res/drawable/resume_play_button.xml
+
+diff --git a/res/drawable/ic_play_dark.xml b/res/drawable/ic_play_dark.xml
+new file mode 100644
+index 0000000..a360a4d
+--- /dev/null
++++ b/res/drawable/ic_play_dark.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="22dp"
++    android:height="22dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#2B1D00"
++        android:pathData="M7,4.5v15c0,0.8 0.9,1.3 1.6,0.8l11.2,-7.5c0.6,-0.4 0.6,-1.2 0,-1.6L8.6,3.7C7.9,3.2 7,3.7 7,4.5z" />
++</vector>
+diff --git a/res/drawable/resume_play_button.xml b/res/drawable/resume_play_button.xml
+new file mode 100644
+index 0000000..d0eceba
+--- /dev/null
++++ b/res/drawable/resume_play_button.xml
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- ReNova: gold play disc of the resume card -->
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++    <item>
++        <shape android:shape="oval">
++            <gradient android:angle="270" android:startColor="#FFE3A2" android:endColor="#FFC85F" />
++        </shape>
++    </item>
++    <item
++        android:drawable="@drawable/ic_play_dark"
++        android:gravity="center"
++        android:width="22dp"
++        android:height="22dp"
++        android:left="2dp" />
++</layer-list>
+diff --git a/res/drawable/rounded_rectangle_grey.xml b/res/drawable/rounded_rectangle_grey.xml
+index 06c5d5c..c90cd11 100644
+--- a/res/drawable/rounded_rectangle_grey.xml
++++ b/res/drawable/rounded_rectangle_grey.xml
+@@ -1,4 +1,6 @@
++<!-- ReNova: resume card of the main screen, violet glass with a gold edge (was flat grey) -->
+ <shape xmlns:android="http://schemas.android.com/apk/res/android">
+-    <solid android:color="@color/lightgrey"/>
+-    <corners android:radius="12dp"/>
++    <gradient android:angle="0" android:startColor="#3A2B8C" android:endColor="#1A1446" />
++    <stroke android:width="1dp" android:color="#40FFD27A" />
++    <corners android:radius="16dp" />
+ </shape>
+diff --git a/res/layout/browser_resume_video.xml b/res/layout/browser_resume_video.xml
+index 04d1fa0..59b9c80 100644
+--- a/res/layout/browser_resume_video.xml
++++ b/res/layout/browser_resume_video.xml
+@@ -22,8 +22,9 @@ access to last video played. -->
+         android:layout_centerVertical="true"
+         android:layout_marginStart="@dimen/global_resume_icon_padding_left"
+         android:layout_marginEnd="@dimen/global_resume_icon_padding_right"
+-        android:background="@drawable/nowplaying_btn_background"
+-        app:srcCompat="@drawable/nowplaying_play"
++        android:padding="6dp"
++        android:background="@drawable/transparent_ripple"
++        app:srcCompat="@drawable/resume_play_button"
+         android:contentDescription="@null" />
+ 
+     <TextView

@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:25:58 +0000
+Subject: [PATCH] Player: info and bookmark move to the overflow menu, less
+ clutter over the video
+
+---
+ .../com/archos/mediacenter/video/player/PlayerActivity.java  | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+index 01f3bea..65ab7c6 100644
+--- a/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
++++ b/src/main/java/com/archos/mediacenter/video/player/PlayerActivity.java
+@@ -2592,7 +2592,8 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+                     .setIcon(R.drawable.ic_menu_stop).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER); // the bar has a stop button
+             mInfoMenuItem = menu.add(MENU_FILE_ACTIONS_GROUP, MENU_INFO_ID, Menu.NONE, R.string.menu_info);
+             if (mInfoMenuItem != null) {
+-                mInfoMenuItem.setIcon(R.drawable.ic_menu_info).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
++                // ReNova: less clutter on top of the video, audio and subtitles stay one tap away
++                mInfoMenuItem.setIcon(R.drawable.ic_menu_info).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+             }
+ 
+             // ReNova: fix a wrong title or episode without leaving the video
+@@ -2600,7 +2601,7 @@ public class PlayerActivity extends AppCompatActivity implements PlayerControlle
+                     .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+             mBookmarkMenuItem = menu.add(MENU_FILE_ACTIONS_GROUP, MENU_BOOKMARK_ID, Menu.NONE, R.string.menu_bookmark);
+             if (mBookmarkMenuItem != null) {
+-                mBookmarkMenuItem.setIcon(R.drawable.ic_menu_bookmark).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
++                mBookmarkMenuItem.setIcon(R.drawable.ic_menu_bookmark).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+             }
+             mAudioInfoController.attachMenu(menu, R.drawable.ic_menu_languages);
+             mSubtitleInfoController.attachMenu(menu, R.drawable.ic_menu_subtitles);

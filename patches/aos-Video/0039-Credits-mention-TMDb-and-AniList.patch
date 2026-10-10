@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:26:10 +0000
+Subject: [PATCH] Credits mention TMDb and AniList
+
+---
+ res/values-pl/strings.xml | 2 +-
+ res/values/strings.xml    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index b71cdc5..6af632f 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1012,7 +1012,7 @@
+     <string name="player_buffering_percent">Buforowanie %1$d%%</string>
+     <string name="renova_about_summary">Bezpieczny odtwarzacz wideo dla udziałów sieciowych: Twoje źródła są tylko do odczytu. Stuknij, aby otworzyć stronę projektu.</string>
+     <string name="renova_credits_title">Zbudowany na NOVA Video Player</string>
+-    <string name="renova_credits_summary">Podziękowania dla zespołu NOVA i Archos Video Player Community Edition. ReNova to niezależny fork.</string>
++    <string name="renova_credits_summary">Podziękowania dla zespołu NOVA i Archos Video Player Community Edition. Dane z TMDb, tytuły anime z AniList. ReNova to niezależny fork.</string>
+     <string name="preferences_ambient_mode">Tryb kinowy</string>
+     <string name="preferences_ambient_mode_summary">Delikatna poświata w kolorach filmu wokół obrazu zamiast czarnych pasów (jak tryb kinowy w YouTube)</string>
+     <string name="data_source_nfo">NFO</string>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index b396244..4e7fd3f 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1107,7 +1107,7 @@
+     <string name="player_buffering_percent">Buffering %1$d%%</string>
+     <string name="renova_about_summary">Safe video player for network shares: your sources are read-only. Tap to open the project page.</string>
+     <string name="renova_credits_title">Built on NOVA Video Player</string>
+-    <string name="renova_credits_summary">Thanks to the NOVA team and the Archos Video Player Community Edition. ReNova is an independent fork.</string>
++    <string name="renova_credits_summary">Thanks to the NOVA team and the Archos Video Player Community Edition. Info from TMDb, anime titles from AniList. ReNova is an independent fork.</string>
+     <string name="preferences_ambient_mode">Cinema mode</string>
+     <string name="preferences_ambient_mode_summary">Soft glow in the colors of the video around the picture instead of black bars (like YouTube\'s ambient mode)</string>
+     <string name="data_source_nfo">NFO</string>

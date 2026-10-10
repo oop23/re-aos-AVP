@@ -65,6 +65,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Kodi-like **buffering progress** ("Buffering 45%") when playback waits for data.
 - Double tap seeking adds up (3 taps = 30 s) into one seek kept inside the video, with the target time shown — it used to hang network files in endless buffering.
 - **Stop button** in the control bar, horizontal **swipe to seek** (Kodi/MX style, preview of the target time), clock style times (`1:25`, `1:05:30`), screen format button with an aspect ratio icon and the format name shown on switch.
+- Fewer icons over the video: audio and subtitles stay on top, info and bookmark move to the menu.
 - Modern controls: play/pause in a soft circle, clean rewind/forward, gold highlight, gradient bar instead of a grey slab, shadows on texts for readability.
 - Title and menu on a soft top fade with strong text shadows: readable on bright scenes. Subtitles are outlined by default.
 - **Edit info** from the player menu, to fix a wrong title or episode without leaving the video.
@@ -79,6 +80,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Animated splash screen (the renewal arrow spins into place, the nova spark flares) and a blur-in entrance into the app.
 - **Modern dialogs** everywhere: rounded cards lit from the top, and on Android 12+ the screen behind is blurred, not just dimmed.
 - Info cards tinted by the artwork are kept dark enough for white text (a yellow poster no longer gives unreadable yellow cards).
+- Main screen resume card in the ReNova style (violet card, gold play disc) instead of a grey slab.
 - Details actions stand out: the main one (Resume, or Play) is a gold pill, the others violet; info cards use the palette instead of a flat grey.
 - On details the artwork blurs softly as the info scrolls over it (Android 12+).
 - Cinematic backdrops: the artwork stays sharp, only the text side and the bottom fade into the background (instead of dimming the whole picture).
