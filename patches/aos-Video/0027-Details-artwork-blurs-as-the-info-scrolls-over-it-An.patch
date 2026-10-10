@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:15:55 +0000
+Subject: [PATCH] Details: artwork blurs as the info scrolls over it (Android
+ 12+)
+
+---
+ .../video/info/VideoInfoActivityFragment.java | 23 +++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+index d042298..55a4f68 100644
+--- a/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/info/VideoInfoActivityFragment.java
+@@ -18,6 +18,8 @@ import android.annotation.SuppressLint;
+ import android.app.Activity;
+ import android.content.ComponentName;
+ import android.content.Context;
++import android.graphics.Shader;
++import android.graphics.RenderEffect;
+ import android.graphics.Typeface;
+ import android.content.DialogInterface;
+ import android.content.Intent;
+@@ -1529,7 +1531,28 @@ public class VideoInfoActivityFragment extends Fragment implements LoaderManager
+     @Override
+     public void onScrollChanged(int i, boolean b, boolean b1) {
+         updateHeaderBackground(i, true);
++        blurBackdropWithScroll(i);
++    }
++
++    private int mBackdropBlurStep = 0;
+ 
++    /**
++     * Android 12+: the artwork is sharp at the top and gets softly blurred as the info cards
++     * scroll over it, so the text in front stays readable (frosted glass look).
++     */
++    private void blurBackdropWithScroll(int scroll) {
++        if (mApplicationBackdrop == null) return;
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
++            float density = getResources().getDisplayMetrics().density;
++            float range = mHeaderHeight > 0 ? mHeaderHeight : 400 * density;
++            float progress = Math.min(1f, Math.max(0f, scroll / range));
++            int step = Math.round(progress * 12); // 0..12, a new effect only when the step changes
++            if (step == mBackdropBlurStep) return;
++            mBackdropBlurStep = step;
++            float radius = step * 2.5f * density;
++            mApplicationBackdrop.setRenderEffect(step == 0 ? null
++                    : RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP));
++        }
+     }
+ 
+     private void updateHeaderBackground(int scroll, boolean animate) {

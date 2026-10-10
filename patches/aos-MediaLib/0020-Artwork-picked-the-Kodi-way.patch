@@ -1,0 +1,211 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:12:19 +0000
+Subject: [PATCH] Artwork picked the Kodi way
+
+Backdrops without text come first (a title printed on the backdrop
+fights with the UI drawn over it), posters in the user's language, then
+English, then textless. Ratings are weighted by their vote count so a
+single 10/10 vote no longer wins.
+---
+ .../themoviedb3/ArtworkRanking.java           | 76 +++++++++++++++++++
+ .../themoviedb3/MovieIdParser2.java           | 10 ++-
+ .../themoviedb3/ShowIdImagesParser.java       | 10 ++-
+ .../themoviedb3/ArtworkRankingTest.java       | 52 +++++++++++++
+ 4 files changed, 144 insertions(+), 4 deletions(-)
+ create mode 100644 src/com/archos/mediascraper/themoviedb3/ArtworkRanking.java
+ create mode 100644 test/java/com/archos/mediascraper/themoviedb3/ArtworkRankingTest.java
+
+diff --git a/src/com/archos/mediascraper/themoviedb3/ArtworkRanking.java b/src/com/archos/mediascraper/themoviedb3/ArtworkRanking.java
+new file mode 100644
+index 0000000..604cc41
+--- /dev/null
++++ b/src/com/archos/mediascraper/themoviedb3/ArtworkRanking.java
+@@ -0,0 +1,76 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import java.util.Locale;
++
++/**
++ * Order of the artwork offered for a movie or a show, the Kodi way:
++ * <ul>
++ * <li>backdrops: textless first (a backdrop with a title written on it fights with the UI text
++ *     drawn over it), then the best rated, large ones before small ones</li>
++ * <li>posters: in the user's language first, then English, then textless, then the rest</li>
++ * </ul>
++ * Ratings are weighted by their number of votes: a single 10/10 vote no longer beats a poster
++ * rated 7.5 by fifty people.
++ *
++ * Pure Java (no Android types) so it is unit testable on the JVM.
++ */
++public final class ArtworkRanking {
++
++    private ArtworkRanking() {}
++
++    // prior: what an image with no votes is worth, and how many votes it takes to move away from it
++    private static final double PRIOR_RATING = 5.0;
++    private static final double PRIOR_VOTES = 3.0;
++
++    /** Vote-count weighted rating (bayesian average), 0..10. */
++    static double weightedRating(Number voteAverage, Number voteCount) {
++        double average = voteAverage == null ? 0 : voteAverage.doubleValue();
++        double count = voteCount == null ? 0 : Math.max(0, voteCount.doubleValue());
++        return (average * count + PRIOR_RATING * PRIOR_VOTES) / (count + PRIOR_VOTES);
++    }
++
++    /** Higher is better. */
++    public static double backdropScore(String imageLanguage, Number voteAverage, Number voteCount, Number width) {
++        double score = weightedRating(voteAverage, voteCount);
++        if (isTextless(imageLanguage)) score += 100;
++        if (width != null && width.intValue() >= 1920) score += 1;
++        return score;
++    }
++
++    /** Higher is better. */
++    public static double posterScore(String imageLanguage, String preferredLanguage, Number voteAverage, Number voteCount) {
++        double score = weightedRating(voteAverage, voteCount);
++        String lang = normalize(imageLanguage);
++        String preferred = normalize(preferredLanguage);
++        if (preferred != null && preferred.equals(lang)) score += 300;
++        else if ("en".equals(lang)) score += 200;
++        else if (lang == null) score += 100;
++        return score;
++    }
++
++    private static boolean isTextless(String imageLanguage) {
++        return normalize(imageLanguage) == null;
++    }
++
++    /** "pt-BR" -> "pt", "xx" (TMDb's no language) / "" / "null" -> null */
++    static String normalize(String language) {
++        if (language == null) return null;
++        String l = language.trim().toLowerCase(Locale.ROOT);
++        int dash = l.indexOf('-');
++        if (dash > 0) l = l.substring(0, dash);
++        if (l.isEmpty() || "xx".equals(l) || "null".equals(l)) return null;
++        return l;
++    }
++}
+diff --git a/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java b/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java
+index 1e2f8a3..aa8c638 100644
+--- a/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java
++++ b/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java
+@@ -195,13 +195,19 @@ public class MovieIdParser2 {
+             Collections.sort(tempPosters, new Comparator<Pair<Image, String>>() {
+                 @Override
+                 public int compare(Pair<Image, String> b1, Pair<Image, String> b2) {
+-                    return - Double.compare(b1.first.vote_average, b2.first.vote_average);
++                    // ReNova: user language, English, textless first; ratings weighted by vote count
++                return - Double.compare(
++                        ArtworkRanking.posterScore(b1.first.iso_639_1, requestedLanguage, b1.first.vote_average, b1.first.vote_count),
++                        ArtworkRanking.posterScore(b2.first.iso_639_1, requestedLanguage, b2.first.vote_average, b2.first.vote_count));
+                 }
+             });
+             Collections.sort(tempBackdrops, new Comparator<Pair<Image, String>>() {
+                 @Override
+                 public int compare(Pair<Image, String> b1, Pair<Image, String> b2) {
+-                    return - Double.compare(b1.first.vote_average, b2.first.vote_average);
++                    // ReNova: textless backdrops first (text on a backdrop fights with the UI), then best rated
++                return - Double.compare(
++                        ArtworkRanking.backdropScore(b1.first.iso_639_1, b1.first.vote_average, b1.first.vote_count, b1.first.width),
++                        ArtworkRanking.backdropScore(b2.first.iso_639_1, b2.first.vote_average, b2.first.vote_count, b2.first.width));
+                 }
+             });
+ 
+diff --git a/src/com/archos/mediascraper/themoviedb3/ShowIdImagesParser.java b/src/com/archos/mediascraper/themoviedb3/ShowIdImagesParser.java
+index ceded32..8448162 100644
+--- a/src/com/archos/mediascraper/themoviedb3/ShowIdImagesParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/ShowIdImagesParser.java
+@@ -77,14 +77,20 @@ public class ShowIdImagesParser {
+         Collections.sort(tempPosters, new Comparator<Pair<Image, String>>() {
+             @Override
+             public int compare(Pair<Image, String> b1, Pair<Image, String> b2) {
+-                return - Double.compare(b1.first.vote_average, b2.first.vote_average);
++                // ReNova: user language, English, textless first; ratings weighted by vote count
++                return - Double.compare(
++                        ArtworkRanking.posterScore(b1.first.iso_639_1, language, b1.first.vote_average, b1.first.vote_count),
++                        ArtworkRanking.posterScore(b2.first.iso_639_1, language, b2.first.vote_average, b2.first.vote_count));
+             }
+         });
+ 
+         Collections.sort(tempBackdrops, new Comparator<Pair<Image, String>>() {
+             @Override
+             public int compare(Pair<Image, String> b1, Pair<Image, String> b2) {
+-                return - Double.compare(b1.first.vote_average, b2.first.vote_average);
++                // ReNova: textless backdrops first (text on a backdrop fights with the UI), then best rated
++                return - Double.compare(
++                        ArtworkRanking.backdropScore(b1.first.iso_639_1, b1.first.vote_average, b1.first.vote_count, b1.first.width),
++                        ArtworkRanking.backdropScore(b2.first.iso_639_1, b2.first.vote_average, b2.first.vote_count, b2.first.width));
+             }
+         });
+ 
+diff --git a/test/java/com/archos/mediascraper/themoviedb3/ArtworkRankingTest.java b/test/java/com/archos/mediascraper/themoviedb3/ArtworkRankingTest.java
+new file mode 100644
+index 0000000..f0b5925
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/themoviedb3/ArtworkRankingTest.java
+@@ -0,0 +1,52 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import static org.junit.Assert.assertNull;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++public class ArtworkRankingTest {
++
++    @Test
++    public void textlessBackdropBeatsBetterRatedBackdropWithText() {
++        assertTrue(ArtworkRanking.backdropScore(null, 5.2f, 4, 1920)
++                > ArtworkRanking.backdropScore("en", 9.0f, 80, 3840));
++        assertTrue(ArtworkRanking.backdropScore("xx", 5.2f, 4, 1280)
++                > ArtworkRanking.backdropScore("pl", 9.0f, 80, 3840));
++    }
++
++    @Test
++    public void posterLanguageOrder() {
++        double pl = ArtworkRanking.posterScore("pl", "pl-PL", 5.0f, 2);
++        double en = ArtworkRanking.posterScore("en", "pl-PL", 9.0f, 100);
++        double none = ArtworkRanking.posterScore(null, "pl-PL", 9.5f, 100);
++        double ja = ArtworkRanking.posterScore("ja", "pl-PL", 10.0f, 500);
++        assertTrue(pl > en);
++        assertTrue(en > none);
++        assertTrue(none > ja);
++    }
++
++    @Test
++    public void fewVotesDoNotBeatManyGoodVotes() {
++        assertTrue(ArtworkRanking.weightedRating(7.5f, 50) > ArtworkRanking.weightedRating(10.0f, 1));
++    }
++
++    @Test
++    public void noLanguageMarkers() {
++        assertNull(ArtworkRanking.normalize("xx"));
++        assertNull(ArtworkRanking.normalize(""));
++        assertNull(ArtworkRanking.normalize(null));
++    }
++}

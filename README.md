@@ -45,12 +45,14 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - **Anime and streaming dumps**: `Frieren/S01E05.mkv`, `Frieren/Sezon 2/Odcinek 05.mp4`, `Frieren/05.mkv`, `[SubsPlease] Sousou no Frieren - 05 (1080p).mkv`, `Frieren odc. 5.mp4` are recognized as episodes, with the show title taken from the folders, instead of being searched as movies named "05".
 
 - **Anime titles resolved with [AniList](https://anilist.co)**: romaji / fansub names TMDb does not know ("Sousou no Frieren") are looked up on AniList's official API and searched again on TMDb under their english/romaji/native titles. ([Shinden](https://shinden.pl) has no public API, so it is not used.)
+- **Anime folders get anime**: a video in an `Anime` folder is never matched to a live action movie (GTO episodes used to become the 1999 movie), `GTO 01.mkv` / `Naruto 001.mp4` are episodes, and absolute numbers (`One Piece - 1050`) are mapped to TMDb's season and episode.
 - **No more Japanese-only texts**: when TMDb has no translation in your language, titles and plots fall back to English instead of the original 葬送のフリーレン with an empty plot.
 
 ### 🏷️ Where the info comes from
 - Next to the TMDb / IMDb logos, details show the **AniList** logo when AniList identified the anime, an **NFO** badge when the info was read from an `.nfo` file, and **Your edits** when you changed it.
 
 ### 🖼️ Sharper artwork
+- Artwork picked the Kodi way: textless backdrops first (no title printed under the UI text), posters in your language, then English, then textless; ratings weighted by their number of votes.
 - Posters downloaded at w780 (were w500, collections w342) and episode stills at full size scaled to 780px (were 300px thumbnails): no more soft covers on TVs.
 
 ### 🛡️ Robustness
@@ -76,6 +78,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Animated splash screen (the renewal arrow spins into place, the nova spark flares) and a blur-in entrance into the app.
 - **Modern dialogs** everywhere: rounded cards lit from the top, and on Android 12+ the screen behind is blurred, not just dimmed.
 - Details actions stand out: the main one (Resume, or Play) is a gold pill, the others violet; info cards use the palette instead of a flat grey.
+- On details the artwork blurs softly as the info scrolls over it (Android 12+).
 - Cinematic backdrops: the artwork stays sharp, only the text side and the bottom fade into the background (instead of dimming the whole picture).
 
 ### 🔐 Fewer permissions
@@ -86,7 +89,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Separate package `io.github.oop23.renova` with its own content providers: **installs next to the original NOVA**.
 
 ### Roadmap
-- Deeper anime support: AniList/MyAnimeList ids, absolute episode numbering (One Piece 1050), anime-first matching for anime folders.
+- Deeper anime support: AniList/MyAnimeList ids and links.
 - Better poster/backdrop selection and image quality, nicer blur effects.
 - Further mobile UI modernization (browse screens).
 

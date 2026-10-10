@@ -1,0 +1,184 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:15:21 +0000
+Subject: [PATCH] Anime: absolute episode numbers mapped to TMDb seasons
+
+'One Piece - 1050' is read as S1E1050; when that is past the first
+season, the episode counts of TMDb's seasons give the real season and
+episode (cached show info, one lookup per show).
+---
+ .../themoviedb3/AbsoluteEpisodes.java         | 66 +++++++++++++++++++
+ .../archos/mediascraper/xml/ShowScraper4.java | 24 +++++++
+ .../themoviedb3/AbsoluteEpisodesTest.java     | 48 ++++++++++++++
+ 3 files changed, 138 insertions(+)
+ create mode 100644 src/com/archos/mediascraper/themoviedb3/AbsoluteEpisodes.java
+ create mode 100644 test/java/com/archos/mediascraper/themoviedb3/AbsoluteEpisodesTest.java
+
+diff --git a/src/com/archos/mediascraper/themoviedb3/AbsoluteEpisodes.java b/src/com/archos/mediascraper/themoviedb3/AbsoluteEpisodes.java
+new file mode 100644
+index 0000000..8a181d4
+--- /dev/null
++++ b/src/com/archos/mediascraper/themoviedb3/AbsoluteEpisodes.java
+@@ -0,0 +1,66 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * Anime dumps number episodes from the start of the show ("One Piece - 1050"), TMDb splits the
++ * same show into seasons (One Piece S21E59). Maps the absolute number to TMDb's season and
++ * episode by walking the episode counts of the regular seasons.
++ *
++ * Pure Java (no Android types) so it is unit testable on the JVM.
++ */
++public final class AbsoluteEpisodes {
++
++    private AbsoluteEpisodes() {}
++
++    /** A regular season of the show: its number and how many episodes TMDb lists in it. */
++    public static final class Season implements Comparable<Season> {
++        final int number;
++        final int episodeCount;
++
++        public Season(int number, int episodeCount) {
++            this.number = number;
++            this.episodeCount = episodeCount;
++        }
++
++        @Override
++        public int compareTo(Season other) {
++            return Integer.compare(number, other.number);
++        }
++    }
++
++    /**
++     * @return {season, episode} for an absolute episode number past the first season, or null when
++     * the number fits in the first season (nothing to remap) or goes past the last one
++     */
++    public static int[] map(List<Season> seasons, int absoluteEpisode) {
++        if (seasons == null || absoluteEpisode <= 0) return null;
++        List<Season> regular = new ArrayList<>();
++        for (Season s : seasons) {
++            if (s != null && s.number > 0 && s.episodeCount > 0) regular.add(s);
++        }
++        if (regular.size() < 2) return null;
++        Collections.sort(regular);
++        if (absoluteEpisode <= regular.get(0).episodeCount) return null;
++        int remaining = absoluteEpisode;
++        for (Season s : regular) {
++            if (remaining <= s.episodeCount) return new int[] { s.number, remaining };
++            remaining -= s.episodeCount;
++        }
++        return null;
++    }
++}
+diff --git a/src/com/archos/mediascraper/xml/ShowScraper4.java b/src/com/archos/mediascraper/xml/ShowScraper4.java
+index afee9ce..58d6eec 100644
+--- a/src/com/archos/mediascraper/xml/ShowScraper4.java
++++ b/src/com/archos/mediascraper/xml/ShowScraper4.java
+@@ -40,6 +40,7 @@ import com.archos.mediascraper.ShowUtils;
+ import com.archos.mediascraper.preprocess.SearchInfo;
+ import com.archos.mediascraper.preprocess.TvShowSearchInfo;
+ import com.archos.filecorelibrary.FileUtils;
++import com.archos.mediascraper.themoviedb3.AbsoluteEpisodes;
+ import com.archos.mediascraper.themoviedb3.MyTmdb;
+ import com.archos.mediascraper.themoviedb3.SearchShow;
+ import com.archos.mediascraper.themoviedb3.SearchShowResult;
+@@ -360,6 +361,29 @@ public class ShowScraper4 extends BaseScraper2 {
+             }
+         }
+ 
++        // ReNova: anime dumps number episodes from the start of the show ("One Piece - 1050" is
++        // read as S1E1050) while TMDb splits it into seasons: map the absolute number to TMDb's
++        // season/episode from the episode counts of its seasons (show info is cached per show)
++        if (requestedSeason == 1 && requestedEpisode > 10 && season <= 1) {
++            String absShowKey = ShowUtils.cleanUpName(result.getOriginalTitle().toLowerCase()) + "|" + showId + "|" + resultLanguage;
++            ShowIdTvSearchResult showInfo = ShowIdTvSearch.getTvShowResponse(absShowKey + requestCacheSuffix, showId, resultLanguage, adultScrape, requestTmdb);
++            if (showInfo != null && showInfo.status == ScrapeStatus.OKAY && showInfo.tvShow != null && showInfo.tvShow.seasons != null) {
++                List<AbsoluteEpisodes.Season> seasonCounts = new ArrayList<>();
++                for (TvSeason tvSeason : showInfo.tvShow.seasons) {
++                    if (tvSeason != null && tvSeason.season_number != null && tvSeason.episode_count != null)
++                        seasonCounts.add(new AbsoluteEpisodes.Season(tvSeason.season_number, tvSeason.episode_count));
++                }
++                int[] mapped = AbsoluteEpisodes.map(seasonCounts, requestedEpisode);
++                if (mapped != null) {
++                    log.info("getDetailsInternal: absolute episode {} of show {} is s{}e{}", requestedEpisode, showId, mapped[0], mapped[1]);
++                    requestedSeason = mapped[0];
++                    requestedEpisode = mapped[1];
++                    season = mapped[0];
++                    episode = mapped[1];
++                }
++            }
++        }
++
+         // Use OPTIONS values if available (for re-scraping), otherwise use SearchResult extras (for manual scraping)
+         // Manual scraping doesn't set season/episode in OPTIONS but has them in SearchResult.extras
+         // Re-scraping sets season in OPTIONS but may not have SearchResult.extras populated
+diff --git a/test/java/com/archos/mediascraper/themoviedb3/AbsoluteEpisodesTest.java b/test/java/com/archos/mediascraper/themoviedb3/AbsoluteEpisodesTest.java
+new file mode 100644
+index 0000000..3881741
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/themoviedb3/AbsoluteEpisodesTest.java
+@@ -0,0 +1,48 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import static org.junit.Assert.assertArrayEquals;
++import static org.junit.Assert.assertNull;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.List;
++
++public class AbsoluteEpisodesTest {
++
++    private static final List<AbsoluteEpisodes.Season> SHOW = Arrays.asList(
++            new AbsoluteEpisodes.Season(0, 12),  // specials do not count
++            new AbsoluteEpisodes.Season(2, 30),
++            new AbsoluteEpisodes.Season(1, 61),
++            new AbsoluteEpisodes.Season(3, 40));
++
++    @Test
++    public void numberInsideFirstSeasonIsKept() {
++        assertNull(AbsoluteEpisodes.map(SHOW, 5));
++        assertNull(AbsoluteEpisodes.map(SHOW, 61));
++    }
++
++    @Test
++    public void numberPastFirstSeasonMovesToItsSeason() {
++        assertArrayEquals(new int[] { 2, 1 }, AbsoluteEpisodes.map(SHOW, 62));
++        assertArrayEquals(new int[] { 2, 30 }, AbsoluteEpisodes.map(SHOW, 91));
++        assertArrayEquals(new int[] { 3, 9 }, AbsoluteEpisodes.map(SHOW, 100));
++    }
++
++    @Test
++    public void numberPastTheLastSeasonIsNotGuessed() {
++        assertNull(AbsoluteEpisodes.map(SHOW, 500));
++    }
++}
