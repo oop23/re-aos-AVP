@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:52:59 +0000
+Subject: [PATCH] Episodes: titles with numbers (Maou 2099) and tags after the
+ number
+
+A number past next year is part of the title, not a release year, and
+tags after the episode number (lektor pl, 1080p, [PL]) no longer hide
+it: 'Maou 2099 01 lektor pl' is Maou 2099 episode 1 instead of a show
+called Maou from the year 2099.
+---
+ .../preprocess/FolderEpisodeNaming.java       | 29 +++++++++++++++++--
+ .../preprocess/FolderEpisodeNamingTest.java   |  8 +++++
+ 2 files changed, 34 insertions(+), 3 deletions(-)
+
+diff --git a/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+index 09bed90..daf508d 100644
+--- a/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
++++ b/src/com/archos/mediascraper/preprocess/FolderEpisodeNaming.java
+@@ -99,6 +99,10 @@ public final class FolderEpisodeNaming {
+ 
+     private static final Pattern BRACKETS = Pattern.compile("[\\[({<][^\\])}>]*[\\])}>]");
+     private static final Pattern YEAR = Pattern.compile("(?:^|\\s)((?:19|20)\\d{2})(?:\\s|$)");
++    private static final Pattern TRAILING_TAGS = Pattern.compile(
++            "(?i)(?:[\\s._-]+(?:480p|576p|720p|1080p|2160p|4k|uhd|hdr|hevc|x264|x265|h264|h265|aac|flac|web(?:-?dl|rip)?|bluray|bdrip|dvdrip|"
++                    + "multi|dual(?:audio)?|pl|eng|jap|jpn|napisy|lektor|dubbing|sub|subs|subbed|dub|dubbed|"
++                    + "\\[[^\\]]*\\]|\\([^)]*\\)))+$");
+     private static final Pattern JUNK = Pattern.compile(
+             "(?i)\\b(?:480p|576p|720p|1080p|2160p|4k|uhd|hdr|hevc|x264|x265|h264|h265|aac|flac|web(?:-?dl|rip)?|bluray|bdrip|dvdrip|"
+                     + "multi|dual(?:audio)?|pl|eng|jap|jpn|napisy|lektor|dubbing|sub|subs|subbed|dub|dubbed)\\b");
+@@ -132,7 +136,9 @@ public final class FolderEpisodeNaming {
+         if ((m = BARE_NUMBER.matcher(bare)).matches()) {
+             return fromFolders(pathSegments, -1, toInt(m.group(1)));
+         }
+-        // 2. title in the file with an episode marker the generic patterns do not know
++        // 2. title in the file with an episode marker the generic patterns do not know; tags after
++        // the number ("Maou 2099 01 lektor pl", "Title - 05 1080p") are not part of it
++        withoutGroup = TRAILING_TAGS.matcher(withoutGroup).replaceFirst("").trim();
+         boolean groupTagged = !withoutGroup.equals(name);
+         if ((m = DASH_NUMBER.matcher(withoutGroup)).matches()) {
+             String number = m.group(2);
+@@ -268,13 +274,30 @@ public final class FolderEpisodeNaming {
+         return t;
+     }
+ 
++    // "Maou 2099": a number past next year is part of the title, not a release year
++    private static final int MAX_YEAR = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) + 1;
++
++    private static boolean plausibleYear(String year) {
++        int y = toInt(year);
++        return y >= 1900 && y <= MAX_YEAR;
++    }
++
+     private static String yearIn(String title) {
+         Matcher m = YEAR.matcher(normalize(title).replaceAll("[()\\[\\]]", " "));
+-        return m.find() ? m.group(1) : null;
++        while (m.find()) {
++            if (plausibleYear(m.group(1))) return m.group(1);
++        }
++        return null;
+     }
+ 
+     private static String removeYear(String title) {
+-        return YEAR.matcher(title).replaceAll(" ");
++        Matcher m = YEAR.matcher(title);
++        StringBuffer out = new StringBuffer();
++        while (m.find()) {
++            m.appendReplacement(out, plausibleYear(m.group(1)) ? " " : Matcher.quoteReplacement(m.group()));
++        }
++        m.appendTail(out);
++        return out.toString();
+     }
+ 
+     static String cleanTitle(String raw) {
+diff --git a/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java b/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+index ec5b8c4..dff0e31 100644
+--- a/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
++++ b/test/java/com/archos/mediascraper/preprocess/FolderEpisodeNamingTest.java
+@@ -72,6 +72,14 @@ public class FolderEpisodeNamingTest {
+         assertEquals("One Piece S1E1050", parse("/Anime/One Piece/One Piece - 1050.mp4"));
+     }
+ 
++    @Test
++    public void numbersInTitlesAndTrailingTags() {
++        // "2099" is not a release year, "lektor pl" after the number is not part of the title
++        assertEquals("Maou 2099 S1E1", parse("/Pobrane/Maou 2099 01 lektor pl.mp4"));
++        assertEquals("Maou 2099 S1E3", parse("/Anime/Maou 2099 - 03 [1080p] PL.mkv"));
++        assertEquals("Frieren S1E5 (2023)", parse("/Anime/Frieren (2023)/05.mkv"));
++    }
++
+     @Test
+     public void seasonKnownOnlyWhenThePathNamesIt() {
+         assertTrue(FolderEpisodeNaming.parse(Arrays.asList("Anime", "KonoSuba", "Sezon 1", "Odcinek 11.mp4")).seasonKnown);

@@ -1,0 +1,218 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:54:53 +0000
+Subject: [PATCH] Anime: animation studio and latin-script cast from AniList
+
+TMDb lists broadcast networks as the studios of anime and often gives
+the japanese cast in japanese script. AniList's main animation studios
+and voice actors (with their characters) replace them; if AniList ever
+refuses the extended query, titles-only lookups keep anime matching.
+---
+ .../mediascraper/anilist/AniListClient.java   | 82 ++++++++++++++++---
+ .../themoviedb3/ShowIdParser.java             | 19 ++++-
+ .../anilist/AniListClientTest.java            | 14 ++++
+ 3 files changed, 100 insertions(+), 15 deletions(-)
+
+diff --git a/src/com/archos/mediascraper/anilist/AniListClient.java b/src/com/archos/mediascraper/anilist/AniListClient.java
+index 9a2b8fe..b2cdc0b 100644
+--- a/src/com/archos/mediascraper/anilist/AniListClient.java
++++ b/src/com/archos/mediascraper/anilist/AniListClient.java
+@@ -48,9 +48,17 @@ public final class AniListClient {
+ 
+     private static final String ENDPOINT = "https://graphql.anilist.co";
+     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
++    // titles only: used when the full query below is refused (schema change), so matching never breaks
++    private static final String QUERY_TITLES =
++            "query ($search: String) { Page(perPage: 1) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) {"
++                    + " id idMal title { romaji english native } synonyms seasonYear format } } }";
++    private static volatile boolean sFullQueryRefused = false;
+     private static final String QUERY =
+-            "query ($search: String) { Page(perPage: 3) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) {"
+-                    + " id idMal title { romaji english native } synonyms seasonYear format description(asHtml: false) averageScore } } }";
++            "query ($search: String) { Page(perPage: 1) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) {"
++                    + " id idMal title { romaji english native } synonyms seasonYear format description(asHtml: false) averageScore"
++                    + " studios(isMain: true) { nodes { name isAnimationStudio } }"
++                    + " characters(sort: [ROLE, RELEVANCE], perPage: 15) { edges { node { name { full } }"
++                    + " voiceActors(language: JAPANESE, sort: [RELEVANCE]) { name { full } } } } } } }";
+ 
+     private static final LruCache<String, List<String>> sCache = new LruCache<>(200);
+     // AniList and MyAnimeList ids of the best match, for links on the details screens
+@@ -64,13 +72,18 @@ public final class AniListClient {
+         public final List<String> titles;
+         public final String description; // plain text, null when none
+         public final int averageScore;   // 0..100, 0 when unknown
++        public final List<String> studios;  // main animation studios, latin names
++        public final List<String[]> cast;   // {voice actor, character}, latin names
+ 
+-        Media(int id, int idMal, List<String> titles, String description, int averageScore) {
++        Media(int id, int idMal, List<String> titles, String description, int averageScore,
++              List<String> studios, List<String[]> cast) {
+             this.id = id;
+             this.idMal = idMal;
+             this.titles = titles;
+             this.description = description;
+             this.averageScore = averageScore;
++            this.studios = studios;
++            this.cast = cast;
+         }
+     }
+     private static volatile OkHttpClient sClient;
+@@ -104,15 +117,14 @@ public final class AniListClient {
+         if (cached != null) return cached;
+         List<String> titles = Collections.emptyList();
+         try {
+-            JSONObject body = new JSONObject()
+-                    .put("query", QUERY)
+-                    .put("variables", new JSONObject().put("search", query.trim()));
+-            Request request = new Request.Builder()
+-                    .url(ENDPOINT)
+-                    .header("Accept", "application/json")
+-                    .post(RequestBody.create(body.toString(), JSON))
+-                    .build();
+-            try (Response response = client().newCall(request).execute()) {
++            Response response = post(sFullQueryRefused ? QUERY_TITLES : QUERY, query.trim());
++            if (response.code() == 400 && !sFullQueryRefused) {
++                log.warn("alternateTitles: AniList refused the full query, falling back to titles only");
++                response.close();
++                sFullQueryRefused = true;
++                response = post(QUERY_TITLES, query.trim());
++            }
++            try {
+                 if (response.isSuccessful() && response.body() != null) {
+                     String json = response.body().string();
+                     titles = parseTitles(json);
+@@ -123,6 +135,8 @@ public final class AniListClient {
+                     log.warn("alternateTitles: AniList answered {} for {}", response.code(), query);
+                     return titles; // do not cache transient failures (rate limit, outage)
+                 }
++            } finally {
++                response.close();
+             }
+         } catch (Exception e) {
+             log.warn("alternateTitles: AniList unreachable for {}: {}", query, e.toString());
+@@ -143,6 +157,18 @@ public final class AniListClient {
+         return ids != null ? ids : new int[] { 0, 0 };
+     }
+ 
++    private static Response post(String graphQl, String search) throws Exception {
++        JSONObject body = new JSONObject()
++                .put("query", graphQl)
++                .put("variables", new JSONObject().put("search", search));
++        Request request = new Request.Builder()
++                .url(ENDPOINT)
++                .header("Accept", "application/json")
++                .post(RequestBody.create(body.toString(), JSON))
++                .build();
++        return client().newCall(request).execute();
++    }
++
+     /**
+      * The best AniList match of {@code query} with its description and score, null when nothing
+      * matched or AniList is unreachable. Blocking: call it from a scraper thread.
+@@ -162,8 +188,38 @@ public final class AniListClient {
+         if (media == null || media.length() == 0) return null;
+         JSONObject best = media.getJSONObject(0);
+         String description = best.isNull("description") ? null : cleanDescription(best.optString("description", null));
++        List<String> studios = new ArrayList<>();
++        JSONObject studioPage = best.optJSONObject("studios");
++        JSONArray studioNodes = studioPage == null ? null : studioPage.optJSONArray("nodes");
++        if (studioNodes != null) {
++            for (int i = 0; i < studioNodes.length(); i++) {
++                JSONObject studio = studioNodes.optJSONObject(i);
++                if (studio == null || !studio.optBoolean("isAnimationStudio", true)) continue;
++                String name = studio.optString("name", null);
++                if (name != null && !name.isEmpty() && !studios.contains(name)) studios.add(name);
++            }
++        }
++        List<String[]> cast = new ArrayList<>();
++        JSONObject characters = best.optJSONObject("characters");
++        JSONArray edges = characters == null ? null : characters.optJSONArray("edges");
++        if (edges != null) {
++            for (int i = 0; i < edges.length(); i++) {
++                JSONObject edge = edges.optJSONObject(i);
++                if (edge == null) continue;
++                String character = fullName(edge.optJSONObject("node"));
++                JSONArray actors = edge.optJSONArray("voiceActors");
++                String actor = actors != null && actors.length() > 0 ? fullName(actors.optJSONObject(0)) : null;
++                if (actor != null) cast.add(new String[] { actor, character != null ? character : "" });
++            }
++        }
+         return new Media(best.optInt("id", 0), best.optInt("idMal", 0), parseTitles(json),
+-                description, best.optInt("averageScore", 0));
++                description, best.optInt("averageScore", 0), studios, cast);
++    }
++
++    private static String fullName(JSONObject person) {
++        JSONObject name = person == null ? null : person.optJSONObject("name");
++        String full = name == null || name.isNull("full") ? null : name.optString("full", null);
++        return full == null || full.trim().isEmpty() ? null : full.trim();
+     }
+ 
+     /** AniList descriptions carry html line breaks, italics and a "(Source: ...)" credit. */
+diff --git a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+index 7eed064..ecd81b6 100644
+--- a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+@@ -112,8 +112,6 @@ public class ShowIdParser {
+             result.addDefaultBackdropTMDB(mContext, serie.backdrop_path);
+         } else if (log.isDebugEnabled()) log.debug("getResult: no backdrop_path for {}", serie.id);
+ 
+-        enrichAnimeFromAniList(serie, result);
+-
+         if (serie.credits != null) {
+             if (serie.credits.guest_stars != null)
+                 for (CastMember guestStar : serie.credits.guest_stars)
+@@ -129,6 +127,9 @@ public class ShowIdParser {
+             log.warn("getResult: credit is null for showId {}", serie.name);
+         }
+ 
++        // after TMDb's credits and networks: AniList replaces them for anime
++        enrichAnimeFromAniList(serie, result);
++
+         return result;
+     }
+ 
+@@ -169,6 +170,20 @@ public class ShowIdParser {
+         if (result.getRating() <= 0 && media.averageScore > 0) {
+             result.setRating(Math.round(media.averageScore) / 10.0f);
+         }
++        // TMDb lists broadcast networks (Tokyo MX, AT-X...) as studios: AniList knows the
++        // animation studio
++        if (!media.studios.isEmpty()) {
++            result.getStudios().clear();
++            for (String studio : media.studios) result.addStudioIfAbsent(studio);
++            result.setStudiosFormatted(null);
++        }
++        // TMDb often has the japanese cast in japanese script: AniList's voice actors are in
++        // latin script, with their characters
++        if (!media.cast.isEmpty()) {
++            result.setActors(new ArrayList<String>());
++            for (String[] actor : media.cast) result.addActorIfAbsent(actor[0], actor[1]);
++            result.setActorsFormatted(null);
++        }
+     }
+ 
+     // many genres are not translated on tmdb and localized request is returned in the local language making one to
+diff --git a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+index fdddca0..64aa84d 100644
+--- a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
++++ b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+@@ -70,4 +70,18 @@ public class AniListClientTest {
+         assertEquals(82, media.averageScore);
+         assertEquals("Kazuma dies.\n\nHe is sent to another world.", media.description);
+     }
++
++    @Test
++    public void animationStudiosAndLatinCast() throws Exception {
++        String json = "{\"data\":{\"Page\":{\"media\":[{\"id\":1,\"title\":{\"romaji\":\"Maou 2099\"},"
++                + "\"studios\":{\"nodes\":[{\"name\":\"Studio Blanc.\",\"isAnimationStudio\":true},{\"name\":\"Aniplex\",\"isAnimationStudio\":false}]},"
++                + "\"characters\":{\"edges\":[{\"node\":{\"name\":{\"full\":\"Veltol Velvet Velschwarz\"}},"
++                + "\"voiceActors\":[{\"name\":{\"full\":\"Kazuyuki Okitsu\"}}]},"
++                + "{\"node\":{\"name\":{\"full\":\"Nobody\"}},\"voiceActors\":[]}]}}]}}}";
++        AniListClient.Media media = AniListClient.parseMedia(json);
++        assertEquals(Arrays.asList("Studio Blanc."), media.studios);
++        assertEquals(1, media.cast.size());
++        assertEquals("Kazuyuki Okitsu", media.cast.get(0)[0]);
++        assertEquals("Veltol Velvet Velschwarz", media.cast.get(0)[1]);
++    }
+ }

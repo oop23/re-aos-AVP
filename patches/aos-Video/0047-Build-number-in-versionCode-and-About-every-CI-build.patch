@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:53:48 +0000
+Subject: [PATCH] Build number in versionCode and About: every CI build
+ installs as an update
+
+---
+ build.gradle | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/build.gradle b/build.gradle
+index 5f420c7..a788826 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -176,12 +176,13 @@ android {
+         // this is overridden when using split apk and normal split apk generation or oneapk amazon generation
+         // amazon apk is generated with ./gradlew -Poneapk
+         // ReNova version: our own release number followed by the NOVA release the patches are based on,
+-        // e.g. "0.1-nova6.5.5". versionCode keeps growing with both: 1 0 6050005 = ReNova 0.1 on NOVA 6.5.5
++        // e.g. "0.1-nova6.5.5". versionCode = ReNova version * 100000000 + build number (CI run number,
++        // -PbuildNumber=N): every CI build installs as an update of the previous one
+         def renovaVersion = '0.1'
+         def novaBaseVersion = '6.5.5'
+-        def novaBaseVersionCode = 6050005
+         def renovaVersionCode = 1
+-        versionCode = renovaVersionCode * 10000000 + novaBaseVersionCode
++        def renovaBuild = project.hasProperty("buildNumber") ? project.property("buildNumber").toString().toInteger() : 0
++        versionCode = renovaVersionCode * 100000000 + renovaBuild
+         versionName = renovaVersion + '-nova' + novaBaseVersion
+         def novaVersionName = versionName
+         if (! project.hasProperty("universal")) {
+@@ -220,7 +221,7 @@ android {
+             buildConfigField "String", "SENTRY_DSN", "\"\"";
+         }
+         resValue "string", "VERSION_NAME", versionName
+-        resValue "string", "APP_INFO", "ReNova Player " + renovaVersion + " (NOVA " + novaBaseVersion + ")"
++        resValue "string", "APP_INFO", "ReNova Player " + renovaVersion + " (NOVA " + novaBaseVersion + ")" + (renovaBuild > 0 ? " build " + renovaBuild : "")
+         resValue "string", "RENOVA_VERSION", renovaVersion
+         resValue "string", "NOVA_BASE_VERSION", novaBaseVersion
+         buildConfigField "String", "RENOVA_VERSION", "\"" + renovaVersion + "\""

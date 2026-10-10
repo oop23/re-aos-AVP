@@ -44,11 +44,24 @@ jobs:
         cd nova/Video
         ./gradlew --no-daemon \
           :FileCoreLibrary:testDebugUnitTest --tests '*SourceAccessPolicyTest' \
-          :MediaLib:testDebugUnitTest --tests '*FolderEpisodeNamingTest' --tests '*MetadataOverridesTest' --tests '*TrackLanguageHintsTest' --tests '*TmdbTextFallbackTest' --tests '*AniListClientTest' --tests '*MassDeletionGuardTest' --tests '*AnimePathTest' --tests '*FormatTimeTest' --tests '*AnimeTitleMatchTest'
+          :MediaLib:testDebugUnitTest --tests '*FolderEpisodeNamingTest' --tests '*MetadataOverridesTest' --tests '*TrackLanguageHintsTest' --tests '*TmdbTextFallbackTest' --tests '*AniListClientTest' --tests '*MassDeletionGuardTest' --tests '*AnimePathTest' --tests '*FormatTimeTest' --tests '*AnimeTitleMatchTest' --tests '*ShareEquivalenceTest' --tests '*ArtworkRankingTest' --tests '*AbsoluteEpisodesTest'
+    - name: signing key
+      # every build must carry the same signature to install as an update of the previous one:
+      # the RENOVA_KEYSTORE_B64 secret when set (your own key), otherwise the public test key
+      # in ci/ (fine for test builds, never for builds you hand out)
+      env:
+        RENOVA_KEYSTORE_B64: ${{ secrets.RENOVA_KEYSTORE_B64 }}
+      run: |
+        mkdir -p ~/.android
+        if [ -n "$RENOVA_KEYSTORE_B64" ]; then
+          echo "$RENOVA_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+        else
+          cp nova/AVP/ci/renova-test.keystore ~/.android/debug.keystore
+        fi
     - name: build
       run: |
         cd nova/Video
-        ./gradlew --no-daemon -Puniversal assembleNoamazonDebug
+        ./gradlew --no-daemon -Puniversal -PbuildNumber=${{ github.run_number }} assembleNoamazonDebug
     - name: list the permissions of the final APK
       continue-on-error: true
       run: |
@@ -59,7 +72,7 @@ jobs:
         echo "::notice title=PERMISSIONS::$perms"
     - uses: actions/upload-artifact@v5
       with:
-        name: apk
+        name: renova-apk-build-${{ github.run_number }}
         path: nova/Video/build/outputs/apk/**/*.apk
     - uses: actions/upload-artifact@v5
       if: failure()
@@ -79,7 +92,7 @@ jobs:
     steps:
     - uses: actions/download-artifact@v5
       with:
-        name: apk
+        name: renova-apk-build-${{ github.run_number }}
         path: apk
     - name: enable kvm
       run: |

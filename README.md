@@ -46,7 +46,7 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 
 - **Anime titles resolved with [AniList](https://anilist.co)**: romaji / fansub names TMDb does not know ("Sousou no Frieren") are looked up on AniList's official API and searched again on TMDb under their english/romaji/native titles. ([Shinden](https://shinden.pl) has no public API, so it is not used.)
 - **Anime folders get anime**: a video in an `Anime` folder is never matched to a live action movie (GTO episodes used to become the 1999 movie), `GTO 01.mkv` / `Naruto 001.mp4` are episodes, and absolute numbers (`One Piece - 1050`) are mapped to TMDb's season and episode.
-- **AniList as a second source for anime**: japanese animation is looked up on AniList (checked against TMDb's titles); its description replaces a TMDb plot that is not in your language, its score fills a missing rating, and the show gets AniList / MyAnimeList links.
+- **AniList as a second source for anime**: japanese animation is looked up on AniList (checked against TMDb's titles); its description replaces a TMDb plot that is not in your language, its score fills a missing rating, its **animation studio** replaces the TV networks TMDb lists, its **voice actors in latin script** replace japanese-script cast, and the show gets AniList / MyAnimeList links.
 - **No more Japanese-only texts**: when TMDb has no translation in your language, titles and plots fall back to English instead of the original 葬送のフリーレン with an empty plot.
 
 ### 🏷️ Where the info comes from
@@ -111,7 +111,11 @@ See the [Help / FAQ](faq/renova.md) (English and Polish), also reachable from *S
 
 ## Download
 
-Every push builds an APK (arm64 + armv7) in [GitHub Actions](https://github.com/oop23/re-aos-AVP/actions/workflows/build.yml): open the latest green run and download the `apk` artifact. Debug-signed builds for now.
+Every push builds an APK (arm64 + armv7) in [GitHub Actions](https://github.com/oop23/re-aos-AVP/actions/workflows/build.yml): open the latest green run and download the `renova-apk-build-N` artifact.
+
+**Updating**: every build is signed with the same key and numbered (build N shows in *Settings → About*), so a newer APK installs over the previous one and keeps your library, edits and settings. Test builds made before build signing was fixed carried a random key: uninstall that one once, later builds update in place.
+
+> The test builds use the public key in [`ci/`](ci): fine for trying ReNova, but anyone could sign an APK with it. To build your own releases, put your keystore (alias `androiddebugkey`, password `android`), base64-encoded, in the `RENOVA_KEYSTORE_B64` secret of your fork.
 
 ## How the fork is built
 

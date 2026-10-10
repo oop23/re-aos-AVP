@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 05:55:19 +0000
+Subject: [PATCH] CJK shows: people listed in latin script only
+
+Japanese, chinese and korean shows often carry their cast and crew in
+native script on TMDb: names without a latin letter are left out of
+show and episode credits (AniList provides latin names for anime).
+---
+ .../themoviedb3/ShowIdEpisodes.java           | 20 ++++++++++++++++---
+ .../themoviedb3/ShowIdParser.java             | 11 +++++++---
+ 2 files changed, 25 insertions(+), 6 deletions(-)
+
+diff --git a/src/com/archos/mediascraper/themoviedb3/ShowIdEpisodes.java b/src/com/archos/mediascraper/themoviedb3/ShowIdEpisodes.java
+index 89a4ccc..2c7b4a3 100644
+--- a/src/com/archos/mediascraper/themoviedb3/ShowIdEpisodes.java
++++ b/src/com/archos/mediascraper/themoviedb3/ShowIdEpisodes.java
+@@ -49,6 +49,10 @@ public class ShowIdEpisodes {
+ 
+         Map<String, EpisodeTags> episodes = new HashMap<>();
+         TvSeason tvSeason;
++        // ReNova: japanese/chinese/korean shows often list their people in native script only,
++        // unreadable for most users: keep only the names TMDb has in latin script
++        String originalLanguage = showTags != null ? showTags.getOriginalLanguage() : null;
++        boolean latinNamesOnly = "ja".equals(originalLanguage) || "zh".equals(originalLanguage) || "ko".equals(originalLanguage);
+         // fill in once for all episodes in "en" in case there is something missing in specific language
+         SparseArray<TvEpisode> globalEpisodes = new SparseArray<>();
+ 
+@@ -59,14 +63,15 @@ public class ShowIdEpisodes {
+                 // note: tvEpisode.credits is null thus use tvEpisode.guest_stars and tvEpisode.crew instead
+                 if (tvEpisode.guest_stars != null) {
+                     for (CastMember guestStar : tvEpisode.guest_stars)
+-                        episodeTags.addActorIfAbsent(guestStar.name, guestStar.character);
++                        if (!latinNamesOnly || hasLatinLetter(guestStar.name))
++                            episodeTags.addActorIfAbsent(guestStar.name, guestStar.character);
+                 } else {
+                     if (log.isDebugEnabled()) log.debug("getEpisodes: guest_star is null for showId {}", showId);
+                 }
+                 if (tvEpisode.crew != null) {
+                     for (CrewMember crew : tvEpisode.crew) {
+                         assert crew.job != null;
+-                        if (crew.job.equals(DIRECTOR))
++                        if (crew.job.equals(DIRECTOR) && (!latinNamesOnly || hasLatinLetter(crew.name)))
+                             episodeTags.addDirectorIfAbsent(crew.name);
+                     }
+                 } else {
+@@ -75,7 +80,7 @@ public class ShowIdEpisodes {
+                 if (tvEpisode.crew != null) {
+                     for (CrewMember crew : tvEpisode.crew) {
+                         assert crew.job != null;
+-                        if (crew.job.equals(WRITER))
++                        if (crew.job.equals(WRITER) && (!latinNamesOnly || hasLatinLetter(crew.name)))
+                             episodeTags.addWriterIfAbsent(crew.name);
+                     }
+                 } else {
+@@ -212,4 +217,13 @@ public class ShowIdEpisodes {
+         }
+         return episodes;
+     }
++
++    static boolean hasLatinLetter(String name) {
++        if (name == null) return false;
++        for (int i = 0; i < name.length(); i++) {
++            char c = name.charAt(i);
++            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
++        }
++        return false;
++    }
+ }
+diff --git a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+index ecd81b6..5fe924f 100644
+--- a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+@@ -112,16 +112,21 @@ public class ShowIdParser {
+             result.addDefaultBackdropTMDB(mContext, serie.backdrop_path);
+         } else if (log.isDebugEnabled()) log.debug("getResult: no backdrop_path for {}", serie.id);
+ 
++        // ReNova: japanese/chinese/korean shows often list people in native script only
++        boolean latinNamesOnly = "ja".equals(serie.original_language) || "zh".equals(serie.original_language)
++                || "ko".equals(serie.original_language);
+         if (serie.credits != null) {
+             if (serie.credits.guest_stars != null)
+                 for (CastMember guestStar : serie.credits.guest_stars)
+-                    result.addActorIfAbsent(guestStar.name, guestStar.character);
++                    if (!latinNamesOnly || ShowIdEpisodes.hasLatinLetter(guestStar.name))
++                        result.addActorIfAbsent(guestStar.name, guestStar.character);
+             if (serie.credits.cast != null)
+                 for (CastMember actor : serie.credits.cast)
+-                    result.addActorIfAbsent(actor.name, actor.character);
++                    if (!latinNamesOnly || ShowIdEpisodes.hasLatinLetter(actor.name))
++                        result.addActorIfAbsent(actor.name, actor.character);
+             if (serie.credits.crew != null)
+                 for (CrewMember crew : serie.credits.crew)
+-                    if (crew.job.equals(DIRECTOR))
++                    if (crew.job.equals(DIRECTOR) && (!latinNamesOnly || ShowIdEpisodes.hasLatinLetter(crew.name)))
+                         result.addDirectorIfAbsent(crew.name);
+         } else {
+             log.warn("getResult: credit is null for showId {}", serie.name);

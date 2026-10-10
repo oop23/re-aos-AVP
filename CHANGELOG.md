@@ -19,6 +19,8 @@ First ReNova release, on NOVA 6.5.5.
 - Edit info of movies, episodes and shows (also from the player menu); edits survive rescrapes.
 - Anime and streaming dumps: titles from folders, fansub and Polish names (`odc.`, `Odcinek`, `Sezon`), `GTO 01`, absolute numbers mapped to TMDb seasons.
 - AniList resolves romaji titles and checks anime matches; anime folders never get live action movies.
+- AniList is a second source for anime: description when TMDb has none in your language, rating, animation studio, voice actors in latin script.
+- Titles with numbers (`Maou 2099 01 lektor pl`), season from folders and names (`KonoSuba 2`), absolute numbers only when no season is named.
 - English fallback instead of untranslated Japanese titles and empty plots.
 - Artwork picked the Kodi way (textless backdrops, posters in your language), larger images.
 - Data sources credited on details: TMDb, IMDb, AniList and MyAnimeList links, NFO and "your edits" badges.
@@ -26,11 +28,15 @@ First ReNova release, on NOVA 6.5.5.
 - Scraping keeps running in background and retries when the network comes back.
 
 ### Player
+- Volume in 50 fine steps with a dot column, -/+ on the top bar; buffering percentage whenever playback stalls.
 - Stop button in the control bar, Kodi-like swipe to seek, double tap seeks that add up and no longer hang network files.
 - Buffering progress, clock style times, aspect ratio icon for the screen format button.
 - Readable title and texts (top fade, shadows), outlined subtitles by default, fewer icons over the video.
 - Optional cinema mode (ambient glow around the picture).
 - Brightness never written to the system nor remembered; the brightness swipe is opt-in.
+
+### Updates
+- Every CI build is signed with the same key and numbered, so a newer APK installs over the previous one.
 
 ### Look
 - ReNova name, dark logo and palette, animated splash, blur-in entrance.
