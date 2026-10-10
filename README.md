@@ -79,6 +79,14 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 - Better poster/backdrop selection and image quality, nicer blur effects.
 - Further mobile UI modernization (browse and details screens), data source logos (TMDb / AniList / NFO) on details.
 
+## Versions
+
+ReNova versions read `<renova>-nova<base>`: **`0.1-nova6.5.5`** is ReNova 0.1 built on NOVA 6.5.5. The first number moves with ReNova's own changes, the second with the upstream release the patches are rebased on.
+
+## Help
+
+See the [Help / FAQ](faq/renova.md) (English and Polish), also reachable from *Settings → About*.
+
 ## Download
 
 Every push builds an APK (arm64 + armv7) in [GitHub Actions](https://github.com/oop23/re-aos-AVP/actions/workflows/build.yml): open the latest green run and download the `apk` artifact. Debug-signed builds for now.

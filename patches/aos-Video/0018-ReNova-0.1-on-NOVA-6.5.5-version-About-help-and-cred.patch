@@ -1,0 +1,301 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:52:42 +0000
+Subject: [PATCH] ReNova 0.1 on NOVA 6.5.5: version, About, help and credits
+
+Version is '<renova>-nova<base>' (0.1-nova6.5.5); upgrade actions still
+read the NOVA base. Settings get About/Help/Credits entries pointing to
+the fork, the store rating prompt and the hardcoded upstream email for
+library exports are gone.
+---
+ build.gradle                                  | 16 ++++++++--
+ res/values-pl/strings.xml                     |  3 ++
+ res/values/donottranslate.xml                 |  4 ++-
+ res/values/strings.xml                        |  3 ++
+ res/xml/preferences_video.xml                 | 14 ++++++++
+ .../mediacenter/video/CustomApplication.java  | 32 +++++++++++--------
+ .../video/browser/BrowserCategory.java        |  2 +-
+ .../utils/DebugDbExportDialogFragment.java    |  2 +-
+ .../video/utils/StoreRatingDialogBuilder.java |  4 +++
+ .../video/utils/VideoPreferencesCommon.java   | 19 +++++++++++
+ .../video/utils/updater/UpdateChecker.java    |  8 +++--
+ .../utils/updater/UpdateCheckerTest.java      |  9 ++++++
+ 12 files changed, 94 insertions(+), 22 deletions(-)
+
+diff --git a/build.gradle b/build.gradle
+index 1b88872..5f420c7 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -175,8 +175,14 @@ android {
+         // below version tracks the one from F-Droid or universal package when generated with ./gradlew -Puniversal
+         // this is overridden when using split apk and normal split apk generation or oneapk amazon generation
+         // amazon apk is generated with ./gradlew -Poneapk
+-        versionCode = 6050005
+-        versionName = '6.5.5'
++        // ReNova version: our own release number followed by the NOVA release the patches are based on,
++        // e.g. "0.1-nova6.5.5". versionCode keeps growing with both: 1 0 6050005 = ReNova 0.1 on NOVA 6.5.5
++        def renovaVersion = '0.1'
++        def novaBaseVersion = '6.5.5'
++        def novaBaseVersionCode = 6050005
++        def renovaVersionCode = 1
++        versionCode = renovaVersionCode * 10000000 + novaBaseVersionCode
++        versionName = renovaVersion + '-nova' + novaBaseVersion
+         def novaVersionName = versionName
+         if (! project.hasProperty("universal")) {
+             // override versionName and versionCode to get it dependent on the date
+@@ -214,7 +220,11 @@ android {
+             buildConfigField "String", "SENTRY_DSN", "\"\"";
+         }
+         resValue "string", "VERSION_NAME", versionName
+-        resValue "string", "APP_INFO", "ReNova v" + versionName + " (" + applicationId + ")"
++        resValue "string", "APP_INFO", "ReNova Player " + renovaVersion + " (NOVA " + novaBaseVersion + ")"
++        resValue "string", "RENOVA_VERSION", renovaVersion
++        resValue "string", "NOVA_BASE_VERSION", novaBaseVersion
++        buildConfigField "String", "RENOVA_VERSION", "\"" + renovaVersion + "\""
++        buildConfigField "String", "NOVA_BASE_VERSION", "\"" + novaBaseVersion + "\""
+     }
+     bundle {
+         language {
+diff --git a/res/values-pl/strings.xml b/res/values-pl/strings.xml
+index b6ebfa4..8b0c643 100644
+--- a/res/values-pl/strings.xml
++++ b/res/values-pl/strings.xml
+@@ -1010,4 +1010,7 @@
+     <string name="preferences_brightness_gesture">Gest jasności</string>
+     <string name="preferences_brightness_gesture_summary">Przesuwanie w górę/dół przy lewej krawędzi playera zmienia jasność tylko dla bieżącego filmu</string>
+     <string name="player_buffering_percent">Buforowanie %1$d%%</string>
++    <string name="renova_about_summary">Bezpieczny odtwarzacz wideo dla udziałów sieciowych: Twoje źródła są tylko do odczytu. Stuknij, aby otworzyć stronę projektu.</string>
++    <string name="renova_credits_title">Zbudowany na NOVA Video Player</string>
++    <string name="renova_credits_summary">Podziękowania dla zespołu NOVA i Archos Video Player Community Edition. ReNova to niezależny fork.</string>
+ </resources>
+diff --git a/res/values/donottranslate.xml b/res/values/donottranslate.xml
+index 631b3d3..969da96 100644
+--- a/res/values/donottranslate.xml
++++ b/res/values/donottranslate.xml
+@@ -5,7 +5,9 @@
+ 
+     <string name="sponsor_url">https://home.courville.org/sponsor</string>
+ 
+-    <string name="faq_url">https://home.courville.org/nova_video_player-faq/index.html</string>
++    <string name="faq_url">https://github.com/oop23/re-aos-AVP/blob/nova/faq/renova.md</string>
++    <string name="renova_project_url">https://github.com/oop23/re-aos-AVP</string>
++    <string name="renova_upstream_url">https://github.com/nova-video-player/aos-AVP</string>
+ 
+     <string name="tmdb_movie_title_url">https://www.themoviedb.org/movie/%1$s?language=%2$s</string>
+     <string name="tmdb_tvshow_title_url">https://www.themoviedb.org/tv/%1$s?language=%2$s</string>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 4a5b69d..35c89e3 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -1105,4 +1105,7 @@
+     <string name="preferences_brightness_gesture">Brightness swipe</string>
+     <string name="preferences_brightness_gesture_summary">Swipe up/down on the left edge of the player to change brightness for the current video only</string>
+     <string name="player_buffering_percent">Buffering %1$d%%</string>
++    <string name="renova_about_summary">Safe video player for network shares: your sources are read-only. Tap to open the project page.</string>
++    <string name="renova_credits_title">Built on NOVA Video Player</string>
++    <string name="renova_credits_summary">Thanks to the NOVA team and the Archos Video Player Community Edition. ReNova is an independent fork.</string>
+ </resources>
+diff --git a/res/xml/preferences_video.xml b/res/xml/preferences_video.xml
+index 66c4607..b7e996f 100644
+--- a/res/xml/preferences_video.xml
++++ b/res/xml/preferences_video.xml
+@@ -696,6 +696,20 @@
+     <PreferenceCategory android:title="@string/preferences_video_about"
+         android:key="about_category"
+         app:iconSpaceReserved="false" >
++        <Preference
++            android:key="preferences_renova_about"
++            android:title="@string/nova"
++            android:summary="@string/renova_about_summary"
++            app:iconSpaceReserved="false"/>
++        <Preference
++            android:key="preferences_renova_help"
++            android:title="@string/help_faq"
++            app:iconSpaceReserved="false"/>
++        <Preference
++            android:key="preferences_renova_credits"
++            android:title="@string/renova_credits_title"
++            android:summary="@string/renova_credits_summary"
++            app:iconSpaceReserved="false"/>
+         <CheckBoxPreference
+             android:defaultValue="false"
+             android:key="enable_sponsor"
+diff --git a/src/main/java/com/archos/mediacenter/video/CustomApplication.java b/src/main/java/com/archos/mediacenter/video/CustomApplication.java
+index df5ebc7..27959cc 100644
+--- a/src/main/java/com/archos/mediacenter/video/CustomApplication.java
++++ b/src/main/java/com/archos/mediacenter/video/CustomApplication.java
+@@ -1342,14 +1342,14 @@ public class CustomApplication extends Application implements DefaultLifecycleOb
+             novaVersionName = info.versionName;
+             try {
+                 novaVersionArray = splitVersion(novaVersionName);
+-                novaLongVersion = "Nova v" + novaVersionArray[0] + "." + novaVersionArray[1] + "." + novaVersionArray[2] +
+-                        " (" + novaVersionArray[3] + String.format(Locale.ROOT, "%02d", novaVersionArray[4]) + String.format(Locale.ROOT, "%02d", novaVersionArray[5]) +
+-                        "." + String.format(Locale.ROOT, "%02d", novaVersionArray[6]) + String.format(Locale.ROOT, "%02d", novaVersionArray[7]) + ")";
++                novaLongVersion = "ReNova Player " + BuildConfig.RENOVA_VERSION + " (NOVA " + novaVersionArray[0] + "." + novaVersionArray[1] + "." + novaVersionArray[2] +
++                        (novaVersionArray[3] > 0 ? ", " + novaVersionArray[3] + String.format(Locale.ROOT, "%02d", novaVersionArray[4]) + String.format(Locale.ROOT, "%02d", novaVersionArray[5]) +
++                        "." + String.format(Locale.ROOT, "%02d", novaVersionArray[6]) + String.format(Locale.ROOT, "%02d", novaVersionArray[7]) : "") + ")";
+                 novaShortVersion = "v" + novaVersionArray[0] + "." + novaVersionArray[1] + "." + novaVersionArray[2];
+             } catch (IllegalArgumentException ie) {
+                 novaVersionArray = new int[] { 0, 0, 0, 0, 0, 0, 0, 0};
+                 log.error("updateVersionState: cannot split application version {}", novaVersionName);
+-                novaLongVersion = "Nova v" + novaVersionName;
++                novaLongVersion = "ReNova Player " + novaVersionName;
+             }
+             SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+             int previousVersion = sharedPreferences.getInt("current_versionCode", -1);
+@@ -1397,21 +1397,27 @@ public class CustomApplication extends Application implements DefaultLifecycleOb
+ 
+     // takes version major.minor.revision-YYYYMMDD.HHMMSS and convert it into an integer array
+     static int[] splitVersion(String version) throws IllegalArgumentException {
+-        Matcher m = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)-(\\d\\d\\d\\d)(\\d\\d)(\\d\\d)\\.(\\d\\d)(\\d\\d)?").matcher(version);
++        // ReNova versions are "<renova>-nova<nova base>[-<date>]", e.g. "0.1-nova6.5.5": the upgrade
++        // actions below are about the NOVA code base, so only the NOVA part is returned
++        Matcher m = Pattern.compile("(?:\\d+(?:\\.\\d+)*-nova)?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(\\d\\d\\d\\d)(\\d\\d)(\\d\\d)\\.(\\d\\d)(\\d\\d)?)?").matcher(version);
+         if (!m.matches())
+             throw new IllegalArgumentException("Malformed application version");
+         return new int[] {
+-                Integer.parseInt(m.group(1)), // major
+-                Integer.parseInt(m.group(2)), // minor
+-                Integer.parseInt(m.group(3)), // version
+-                Integer.parseInt(m.group(4)), // year
+-                Integer.parseInt(m.group(5)), // month
+-                Integer.parseInt(m.group(6)), // day
+-                Integer.parseInt(m.group(7)), // hour
+-                Integer.parseInt(m.group(8))  // minute
++                parseVersionPart(m.group(1)), // major
++                parseVersionPart(m.group(2)), // minor
++                parseVersionPart(m.group(3)), // version
++                parseVersionPart(m.group(4)), // year
++                parseVersionPart(m.group(5)), // month
++                parseVersionPart(m.group(6)), // day
++                parseVersionPart(m.group(7)), // hour
++                parseVersionPart(m.group(8))  // minute
+         };
+     }
+ 
++    private static int parseVersionPart(String part) {
++        return part == null ? 0 : Integer.parseInt(part);
++    }
++
+     public static String getChangelog(Context context) {
+         if (novaPreviousVersionArray == null || novaVersionArray == null) {
+             updateVersionState(context);
+diff --git a/src/main/java/com/archos/mediacenter/video/browser/BrowserCategory.java b/src/main/java/com/archos/mediacenter/video/browser/BrowserCategory.java
+index fcf1e63..868f1ae 100644
+--- a/src/main/java/com/archos/mediacenter/video/browser/BrowserCategory.java
++++ b/src/main/java/com/archos/mediacenter/video/browser/BrowserCategory.java
+@@ -590,7 +590,7 @@ abstract public class BrowserCategory extends ListFragment {
+     }
+ 
+     private void addLastItems() {
+-        mCategoryList.add("Nova" + " v" + getText(R.string.VERSION_NAME));
++        mCategoryList.add(getString(R.string.APP_INFO));
+         ItemData itemData = new ItemData();
+         itemData.icon = R.drawable.android29_ic_settings;
+         itemData.text = R.string.preferences;
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/DebugDbExportDialogFragment.java b/src/main/java/com/archos/mediacenter/video/utils/DebugDbExportDialogFragment.java
+index dd6029b..badf442 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/DebugDbExportDialogFragment.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/DebugDbExportDialogFragment.java
+@@ -129,7 +129,7 @@ public class DebugDbExportDialogFragment extends DialogFragment {
+                     if (finalZipFile != null) {
+                         Intent emailIntent = new Intent(Intent.ACTION_SEND);
+                         emailIntent.setType("text/plain");
+-                        emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{"software+video_db@courville.org"});
++                        // ReNova: no hardcoded recipient (it was the upstream NOVA developer)
+                         emailIntent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.zipped_library_mail_subject));
+                         emailIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.zipped_library_mail_text));
+                         emailIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(finalZipFile));
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/StoreRatingDialogBuilder.java b/src/main/java/com/archos/mediacenter/video/utils/StoreRatingDialogBuilder.java
+index 2090a68..9b2802b 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/StoreRatingDialogBuilder.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/StoreRatingDialogBuilder.java
+@@ -34,6 +34,8 @@ public class StoreRatingDialogBuilder{
+     private static final int TRIGGER_VALUE = 12;
+ 
+     public static void displayStoreRatingDialogIfNeeded(Context context){
++        // ReNova is not distributed through a store: never ask for a store rating
++        if (!STORE_RATING_ENABLED) return;
+         int current = PreferenceManager.getDefaultSharedPreferences(context).getInt(NUM_PLAYER_LAUNCHED, 0);
+         if(current == TRIGGER_VALUE){
+             showDialog(context);
+@@ -41,6 +43,8 @@ public class StoreRatingDialogBuilder{
+         PreferenceManager.getDefaultSharedPreferences(context).edit().putInt(NUM_PLAYER_LAUNCHED, current+1).apply();
+     }
+ 
++    private static final boolean STORE_RATING_ENABLED = false;
++
+     private static void showDialog(final Context context) {
+ 
+         String title ="";
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java b/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java
+index 31ddc05..8e8b0c8 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/VideoPreferencesCommon.java
+@@ -993,6 +993,25 @@ public class VideoPreferencesCommon implements OnSharedPreferenceChangeListener
+         mSharedPreferences = getPreferenceManager().getSharedPreferences();
+         migrateDolbyVisionPreference(mSharedPreferences);
+         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
++        // ReNova: about the fork, its help page and the projects it is built on
++        Preference renovaAbout = findPreference("preferences_renova_about");
++        if (renovaAbout != null) {
++            renovaAbout.setTitle(getString(R.string.APP_INFO));
++            renovaAbout.setOnPreferenceClickListener(p -> {
++                WebUtils.openWebLink(getActivity(), getString(R.string.renova_project_url));
++                return true;
++            });
++        }
++        Preference renovaHelp = findPreference("preferences_renova_help");
++        if (renovaHelp != null) renovaHelp.setOnPreferenceClickListener(p -> {
++            WebUtils.openWebLink(getActivity(), getString(R.string.faq_url));
++            return true;
++        });
++        Preference renovaCredits = findPreference("preferences_renova_credits");
++        if (renovaCredits != null) renovaCredits.setOnPreferenceClickListener(p -> {
++            WebUtils.openWebLink(getActivity(), getString(R.string.renova_upstream_url));
++            return true;
++        });
+         final Preference pref = (Preference) findPreference(KEY_VIDEO_OS);
+         pref.setEnabled(true);
+         pref.setOnPreferenceClickListener(preference -> {
+diff --git a/src/main/java/com/archos/mediacenter/video/utils/updater/UpdateChecker.java b/src/main/java/com/archos/mediacenter/video/utils/updater/UpdateChecker.java
+index cbcce76..b7d8252 100644
+--- a/src/main/java/com/archos/mediacenter/video/utils/updater/UpdateChecker.java
++++ b/src/main/java/com/archos/mediacenter/video/utils/updater/UpdateChecker.java
+@@ -105,11 +105,13 @@ public final class UpdateChecker {
+         return tag;
+     }
+ 
+-    /** The release version without the build-date suffix, e.g. "6.5.4-20261003.0017" -> "6.5.4". */
++    /**
++     * The release version without the build-date suffix, e.g. "6.5.4-20261003.0017" -> "6.5.4",
++     * "0.1-nova6.5.5-20261010.1530" -> "0.1-nova6.5.5".
++     */
+     public static String baseVersion(String versionName) {
+         if (versionName == null) return "";
+-        int idx = versionName.indexOf('-');
+-        return idx < 0 ? versionName : versionName.substring(0, idx);
++        return versionName.replaceFirst("-\\d{8}\\.\\d+$", "");
+     }
+ 
+     /** Extract the version code embedded in Nova APK asset names, or -1. */
+diff --git a/src/test/java/com/archos/mediacenter/video/utils/updater/UpdateCheckerTest.java b/src/test/java/com/archos/mediacenter/video/utils/updater/UpdateCheckerTest.java
+index 5ead972..30751ef 100644
+--- a/src/test/java/com/archos/mediacenter/video/utils/updater/UpdateCheckerTest.java
++++ b/src/test/java/com/archos/mediacenter/video/utils/updater/UpdateCheckerTest.java
+@@ -56,6 +56,15 @@ public class UpdateCheckerTest {
+         assertEquals("6.5.4", UpdateChecker.baseVersion("6.5.4-20261003.0017"));
+         assertEquals("6.5.4", UpdateChecker.baseVersion("6.5.4"));
+         assertEquals("", UpdateChecker.baseVersion(null));
++        assertEquals("0.1-nova6.5.5", UpdateChecker.baseVersion("0.1-nova6.5.5-20261010.1530"));
++        assertEquals("0.1-nova6.5.5", UpdateChecker.baseVersion("0.1-nova6.5.5"));
++    }
++
++    @Test
++    public void renovaVersionComparison() {
++        assertTrue(UpdateChecker.compareVersionStrings("0.2-nova6.5.5", "0.1-nova6.5.5") > 0);
++        assertTrue(UpdateChecker.compareVersionStrings("0.1-nova6.5.6", "0.1-nova6.5.5") > 0);
++        assertEquals(0, UpdateChecker.compareVersionStrings("0.1-nova6.5.5", "0.1-nova6.5.5"));
+     }
+ 
+     @Test
