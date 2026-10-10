@@ -1,0 +1,267 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:14:17 +0000
+Subject: [PATCH] Resolve anime titles with AniList when TMDb finds nothing
+
+Fansub and streaming dump names use romaji titles ('Sousou no Frieren',
+'Shingeki no Kyojin') that TMDb often does not index, so episodes stayed
+unscraped or got matched to random content. When the TMDb TV search
+comes back empty, the official AniList GraphQL API (no key needed)
+gives the english, romaji and native titles of the best anime match and
+the TMDb search is retried with them. Results are cached; AniList
+failures just skip the fallback.
+---
+ .../mediascraper/anilist/AniListClient.java   | 149 ++++++++++++++++++
+ .../mediascraper/themoviedb3/SearchShow.java  |  16 ++
+ .../anilist/AniListClientTest.java            |  52 ++++++
+ 3 files changed, 217 insertions(+)
+ create mode 100644 src/com/archos/mediascraper/anilist/AniListClient.java
+ create mode 100644 test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+
+diff --git a/src/com/archos/mediascraper/anilist/AniListClient.java b/src/com/archos/mediascraper/anilist/AniListClient.java
+new file mode 100644
+index 0000000..3d6699b
+--- /dev/null
++++ b/src/com/archos/mediascraper/anilist/AniListClient.java
+@@ -0,0 +1,149 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.anilist;
++
++import android.util.LruCache;
++
++import org.json.JSONArray;
++import org.json.JSONException;
++import org.json.JSONObject;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.LinkedHashSet;
++import java.util.List;
++import java.util.Locale;
++import java.util.Set;
++import java.util.concurrent.TimeUnit;
++
++import okhttp3.MediaType;
++import okhttp3.OkHttpClient;
++import okhttp3.Request;
++import okhttp3.RequestBody;
++import okhttp3.Response;
++
++/**
++ * Minimal client of the official AniList GraphQL API (https://docs.anilist.co, no key needed).
++ *
++ * Anime files are usually named with the romaji title used by fansubs and streaming dumps
++ * ("Sousou no Frieren", "Shingeki no Kyojin") which TMDb often does not index, so the episode ended
++ * up unscraped or matched to a random movie. AniList resolves such names to the english / romaji /
++ * native titles, which are then searched on TMDb.
++ */
++public final class AniListClient {
++
++    private static final Logger log = LoggerFactory.getLogger(AniListClient.class);
++
++    private static final String ENDPOINT = "https://graphql.anilist.co";
++    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
++    private static final String QUERY =
++            "query ($search: String) { Page(perPage: 3) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) {"
++                    + " id idMal title { romaji english native } synonyms seasonYear format } } }";
++
++    private static final LruCache<String, List<String>> sCache = new LruCache<>(200);
++    private static volatile OkHttpClient sClient;
++
++    private AniListClient() {}
++
++    private static OkHttpClient client() {
++        if (sClient == null) {
++            synchronized (AniListClient.class) {
++                if (sClient == null) {
++                    sClient = new OkHttpClient.Builder()
++                            .connectTimeout(8, TimeUnit.SECONDS)
++                            .readTimeout(8, TimeUnit.SECONDS)
++                            .callTimeout(12, TimeUnit.SECONDS)
++                            .build();
++                }
++            }
++        }
++        return sClient;
++    }
++
++    /**
++     * Titles the best AniList match of {@code query} is known under (english first, then romaji,
++     * then latin synonyms). Empty when nothing matched or AniList is unreachable. Blocking: call it
++     * from a scraper thread.
++     */
++    public static List<String> alternateTitles(String query) {
++        if (query == null || query.trim().length() < 2) return Collections.emptyList();
++        String key = query.trim().toLowerCase(Locale.ROOT);
++        List<String> cached = sCache.get(key);
++        if (cached != null) return cached;
++        List<String> titles = Collections.emptyList();
++        try {
++            JSONObject body = new JSONObject()
++                    .put("query", QUERY)
++                    .put("variables", new JSONObject().put("search", query.trim()));
++            Request request = new Request.Builder()
++                    .url(ENDPOINT)
++                    .header("Accept", "application/json")
++                    .post(RequestBody.create(body.toString(), JSON))
++                    .build();
++            try (Response response = client().newCall(request).execute()) {
++                if (response.isSuccessful() && response.body() != null) {
++                    titles = parseTitles(response.body().string());
++                } else {
++                    log.warn("alternateTitles: AniList answered {} for {}", response.code(), query);
++                    return titles; // do not cache transient failures (rate limit, outage)
++                }
++            }
++        } catch (Exception e) {
++            log.warn("alternateTitles: AniList unreachable for {}: {}", query, e.toString());
++            return titles;
++        }
++        if (log.isDebugEnabled()) log.debug("alternateTitles: {} -> {}", query, titles);
++        sCache.put(key, titles);
++        return titles;
++    }
++
++    /** Parses an AniList answer into the titles of its best match. Package visible for tests. */
++    static List<String> parseTitles(String json) throws JSONException {
++        JSONObject root = new JSONObject(json);
++        JSONObject data = root.optJSONObject("data");
++        JSONObject page = data == null ? null : data.optJSONObject("Page");
++        JSONArray media = page == null ? null : page.optJSONArray("media");
++        if (media == null || media.length() == 0) return Collections.emptyList();
++        JSONObject best = media.getJSONObject(0);
++        Set<String> titles = new LinkedHashSet<>();
++        JSONObject title = best.optJSONObject("title");
++        if (title != null) {
++            add(titles, title.optString("english", null));
++            add(titles, title.optString("romaji", null));
++        }
++        JSONArray synonyms = best.optJSONArray("synonyms");
++        if (synonyms != null) {
++            for (int i = 0; i < synonyms.length() && titles.size() < 5; i++) {
++                String s = synonyms.optString(i, null);
++                if (isLatin(s)) add(titles, s);
++            }
++        }
++        if (title != null) add(titles, title.optString("native", null));
++        return Collections.unmodifiableList(new ArrayList<>(titles));
++    }
++
++    private static void add(Set<String> titles, String t) {
++        if (t != null && !t.trim().isEmpty() && !"null".equals(t)) titles.add(t.trim());
++    }
++
++    private static boolean isLatin(String s) {
++        if (s == null) return false;
++        for (int i = 0; i < s.length(); i++) {
++            char c = s.charAt(i);
++            if (Character.isLetter(c) && Character.UnicodeScript.of(c) != Character.UnicodeScript.LATIN) return false;
++        }
++        return true;
++    }
++}
+diff --git a/src/com/archos/mediascraper/themoviedb3/SearchShow.java b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+index 7205777..dfbe7a6 100644
+--- a/src/com/archos/mediascraper/themoviedb3/SearchShow.java
++++ b/src/com/archos/mediascraper/themoviedb3/SearchShow.java
+@@ -16,6 +16,7 @@ package com.archos.mediascraper.themoviedb3;
+ 
+ import android.util.LruCache;
+ 
++import com.archos.mediascraper.anilist.AniListClient;
+ import com.archos.mediascraper.ScrapeStatus;
+ import com.archos.mediascraper.SearchResult;
+ import com.archos.mediascraper.ShowUtils;
+@@ -124,6 +125,21 @@ public class SearchShow {
+                             }
+                         }
+                     }
++                    if (response.body() == null || response.body().total_results == 0) {
++                        // anime: romaji / fansub names TMDb does not index ("Sousou no Frieren"),
++                        // AniList knows the english / romaji / native titles TMDb uses
++                        for (String alternateTitle : AniListClient.alternateTitles(searchQueryString)) {
++                            if (alternateTitle.equalsIgnoreCase(searchQueryString)) continue;
++                            if (log.isDebugEnabled()) log.debug("search: no results, retrying with AniList title: {}", alternateTitle);
++                            response = tmdb.searchService().tv(alternateTitle, 1, language, year, false).execute();
++                            if (response.isSuccessful()) isResponseOk = true;
++                            if (response.body() != null && response.body().total_results == 0 && !language.equals("en")) {
++                                response = tmdb.searchService().tv(alternateTitle, 1, "en", year, false).execute();
++                                if (response.isSuccessful()) isResponseOk = true;
++                            }
++                            if (response.body() != null && response.body().total_results > 0) break;
++                        }
++                    }
+                     if (response.body() == null || response.body().total_results == 0) notFoundIssue = true;
+                     else notFoundIssue = false;
+ 
+diff --git a/test/java/com/archos/mediascraper/anilist/AniListClientTest.java b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+new file mode 100644
+index 0000000..576bc99
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/anilist/AniListClientTest.java
+@@ -0,0 +1,52 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.anilist;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++import java.util.Arrays;
++import java.util.List;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(manifest = Config.NONE)
++public class AniListClientTest {
++
++    @Test
++    public void bestMatchTitlesEnglishFirst() throws Exception {
++        String json = "{\"data\":{\"Page\":{\"media\":[{\"id\":154587,\"idMal\":52991,"
++                + "\"title\":{\"romaji\":\"Sousou no Frieren\",\"english\":\"Frieren: Beyond Journey's End\",\"native\":\"葬送のフリーレン\"},"
++                + "\"synonyms\":[\"Frieren at the Funeral\",\"장송의 프리렌\"],\"seasonYear\":2023,\"format\":\"TV\"},"
++                + "{\"id\":1,\"title\":{\"romaji\":\"Other\"}}]}}}";
++        List<String> titles = AniListClient.parseTitles(json);
++        assertEquals(Arrays.asList("Frieren: Beyond Journey's End", "Sousou no Frieren",
++                "Frieren at the Funeral", "葬送のフリーレン"), titles);
++    }
++
++    @Test
++    public void noEnglishTitle() throws Exception {
++        String json = "{\"data\":{\"Page\":{\"media\":[{\"title\":{\"romaji\":\"Kimetsu no Yaiba\",\"english\":null,\"native\":\"鬼滅の刃\"},\"synonyms\":[]}]}}}";
++        assertEquals(Arrays.asList("Kimetsu no Yaiba", "鬼滅の刃"), AniListClient.parseTitles(json));
++    }
++
++    @Test
++    public void nothingFound() throws Exception {
++        assertTrue(AniListClient.parseTitles("{\"data\":{\"Page\":{\"media\":[]}}}").isEmpty());
++        assertTrue(AniListClient.parseTitles("{\"errors\":[{\"message\":\"Too Many Requests\"}],\"data\":null}").isEmpty());
++    }
++}

@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:15:12 +0000
+Subject: [PATCH] Sharper artwork: w780 posters, full size episode stills
+
+Posters were downloaded at w500 (collections and NFO posters even at
+w342) while the app sizes them for 780px, so they looked soft on TVs.
+Download w780 posters and original episode stills scaled to 780x439
+instead of 300x169 thumbnails.
+---
+ src/com/archos/mediascraper/CollectionTags.java       |  2 +-
+ src/com/archos/mediascraper/ScraperImage.java         | 11 +++++++----
+ .../mediascraper/saxhandler/NfoMovieHandler.java      |  4 ++--
+ src/com/archos/mediascraper/xml/MovieScraper3.java    |  2 +-
+ 4 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/src/com/archos/mediascraper/CollectionTags.java b/src/com/archos/mediascraper/CollectionTags.java
+index 9f86450..b5ce1d8 100644
+--- a/src/com/archos/mediascraper/CollectionTags.java
++++ b/src/com/archos/mediascraper/CollectionTags.java
+@@ -217,7 +217,7 @@ public class CollectionTags implements Parcelable {
+ 
+     // generates the various posters/backdrops based on URL
+     public void downloadImage(Context context) {
+-        downloadCollectionImage(ImageConfiguration.PosterSize.W342,     // large poster
++        downloadCollectionImage(ImageConfiguration.PosterSize.W780,     // large poster (ReNova: was w342, soft on TV)
+                 ImageConfiguration.PosterSize.W92,                      // thumb poster
+                 ImageConfiguration.BackdropSize.W1280,                  // large bd
+                 ImageConfiguration.BackdropSize.W300,                   // thumb bd
+diff --git a/src/com/archos/mediascraper/ScraperImage.java b/src/com/archos/mediascraper/ScraperImage.java
+index dac8fb6..5ab38f2 100644
+--- a/src/com/archos/mediascraper/ScraperImage.java
++++ b/src/com/archos/mediascraper/ScraperImage.java
+@@ -48,17 +48,20 @@ public class ScraperImage {
+     public static int POSTER_HEIGHT = 1170;
+ 
+     // 780x439 64K or 300x169 16K or 185x104 8K or 92x52 4K
+-    public static int PICTURE_WIDTH = 300;
+-    public static int PICTURE_HEIGHT = 169;
++    // ReNova: 780x439, 300x169 episode pictures were blurry on TVs and tablets
++    public static int PICTURE_WIDTH = 780;
++    public static int PICTURE_HEIGHT = 439;
+ 
+     // cf. https://www.themoviedb.org/talk/5abcef779251411e97025408 and formats available https://api.themoviedb.org/3/configuration?api_key=051012651ba326cf5b1e2f482342eaa2
+     final static String TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/";
+     final static String POSTER_THUMB = "w185";
+-    public final static String POSTER_LARGE = "w500";
++    // ReNova: w780 matches POSTER_WIDTH, w500 posters were stretched and soft on TV screens
++    public final static String POSTER_LARGE = "w780";
+     final static String BACKDROP_THUMB = "w300";
+     final static String BACKDROP_LARGE = "w1280";
+     final static String STILL_THUMB = "w185";
+-    final static String STILL_LARGE = "w300";
++    // still sizes are w92/w185/w300/original: original, scaled down to PICTURE_WIDTH on device
++    final static String STILL_LARGE = "original";
+     // for poster
+     public final static String TMPT = TMDB_IMAGE_URL + POSTER_THUMB;
+     public final static String TMPL = TMDB_IMAGE_URL + POSTER_LARGE;
+diff --git a/src/com/archos/mediascraper/saxhandler/NfoMovieHandler.java b/src/com/archos/mediascraper/saxhandler/NfoMovieHandler.java
+index 175ad5f..5932c6d 100644
+--- a/src/com/archos/mediascraper/saxhandler/NfoMovieHandler.java
++++ b/src/com/archos/mediascraper/saxhandler/NfoMovieHandler.java
+@@ -538,7 +538,7 @@ public class NfoMovieHandler extends BasicSubParseHandler {
+                 for (String url : mMoviePosterUrls) {
+                     if (url != null && !url.isEmpty() && url.startsWith("http")) {
+                         ScraperImage image = new ScraperImage(ScraperImage.Type.MOVIE_POSTER, movieFile.toString());
+-                        image.setLargeUrl(ImageConfiguration.rewriteUrl(url, PosterSize.W342));
++                        image.setLargeUrl(ImageConfiguration.rewriteUrl(url, PosterSize.W780));
+                         image.setThumbUrl(ImageConfiguration.rewriteUrl(url, PosterSize.W92));
+                         image.generateFileNames(context);
+                         images.add(image);
+@@ -562,7 +562,7 @@ public class NfoMovieHandler extends BasicSubParseHandler {
+ 
+             if (mMovie.getCollectionId() > 0)
+                 downloadCollectionImage(mMovie,
+-                        ImageConfiguration.PosterSize.W342,    // large poster
++                        ImageConfiguration.PosterSize.W780,    // large poster (ReNova: was w342, soft on TV)
+                         ImageConfiguration.PosterSize.W92,     // thumb poster
+                         ImageConfiguration.BackdropSize.W1280, // large bd
+                         ImageConfiguration.BackdropSize.W300,  // thumb bd
+diff --git a/src/com/archos/mediascraper/xml/MovieScraper3.java b/src/com/archos/mediascraper/xml/MovieScraper3.java
+index 58c6db2..4c22e08 100644
+--- a/src/com/archos/mediascraper/xml/MovieScraper3.java
++++ b/src/com/archos/mediascraper/xml/MovieScraper3.java
+@@ -563,7 +563,7 @@ public class MovieScraper3 extends BaseScraper2 {
+                 if (collectionInfo.backdrop != null) tag.setCollectionBackdropPath(collectionInfo.backdrop);
+             }
+             downloadCollectionImage(tag,
+-                    ImageConfiguration.PosterSize.W342,    // large poster
++                    ImageConfiguration.PosterSize.W780,    // large poster (ReNova: was w342, soft on TV)
+                     ImageConfiguration.PosterSize.W92,     // thumb poster
+                     ImageConfiguration.BackdropSize.W1280, // large bd
+                     ImageConfiguration.BackdropSize.W300,  // thumb bd

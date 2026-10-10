@@ -43,7 +43,7 @@ jobs:
         cd nova/Video
         ./gradlew --no-daemon \
           :FileCoreLibrary:testDebugUnitTest --tests '*SourceAccessPolicyTest' \
-          :MediaLib:testDebugUnitTest --tests '*FolderEpisodeNamingTest' --tests '*MetadataOverridesTest'
+          :MediaLib:testDebugUnitTest --tests '*FolderEpisodeNamingTest' --tests '*MetadataOverridesTest' --tests '*TrackLanguageHintsTest' --tests '*TmdbTextFallbackTest' --tests '*AniListClientTest'
     - name: build
       run: |
         cd nova/Video

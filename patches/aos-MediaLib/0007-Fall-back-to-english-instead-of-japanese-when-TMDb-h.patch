@@ -1,0 +1,260 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:12:48 +0000
+Subject: [PATCH] Fall back to english instead of japanese when TMDb has no
+ translation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Without a translation in the user's language TMDb returns the original
+title and an empty overview, so anime showed up as 葬送のフリーレン with
+no plot. Show and movie titles/plots now fall back to the english
+translation already present in the response whenever the text would be
+missing or in a non latin script the user did not ask for.
+---
+ .../themoviedb3/MovieIdParser2.java           |  7 +-
+ .../themoviedb3/ShowIdParser.java             | 13 +--
+ .../themoviedb3/TmdbTextFallback.java         | 80 +++++++++++++++++++
+ .../themoviedb3/TmdbTextFallbackTest.java     | 77 ++++++++++++++++++
+ 4 files changed, 169 insertions(+), 8 deletions(-)
+ create mode 100644 src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java
+ create mode 100644 test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java
+
+diff --git a/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java b/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java
+index fb25071..1e2f8a3 100644
+--- a/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java
++++ b/src/com/archos/mediascraper/themoviedb3/MovieIdParser2.java
+@@ -71,7 +71,7 @@ public class MovieIdParser2 {
+         if (movie.id != null) result.setOnlineId(movie.id);
+         result.setOriginalLanguage(movie.original_language);
+         result.setOriginalTitle(movie.original_title);
+-        result.setTitleLanguage(TmdbTitleLanguage.forMovie(movie.title, requestedLanguage,
++        result.setTitleLanguage(TmdbTitleLanguage.forMovie(TmdbTextFallback.title(movie.title, requestedLanguage, movie.translations, false), requestedLanguage,
+                 movie.original_title, movie.original_language, movie.translations));
+         if (movie.spoken_languages != null) {
+             List<String> spokenLanguages = new ArrayList<String>();
+@@ -91,7 +91,8 @@ public class MovieIdParser2 {
+                 result.addGenreIfAbsent(genre);
+         }
+         if (movie.imdb_id != null) result.setImdbId(movie.imdb_id);
+-        if (movie.overview != null) result.setPlot(movie.overview);
++        String overview = TmdbTextFallback.overview(movie.overview, requestedLanguage, movie.translations);
++        if (overview != null) result.setPlot(overview);
+         if (movie.production_companies != null)
+             for (BaseCompany productionCompany: movie.production_companies)
+                 result.addStudioIfAbsent(productionCompany.name);
+@@ -116,7 +117,7 @@ public class MovieIdParser2 {
+             if (log.isDebugEnabled()) log.debug("getResult collection overview: {}", movie.belongs_to_collection.overview);
+         } else
+             result.setCollectionId(-1);
+-        if (movie.title != null) result.setTitle(movie.title);
++        if (movie.title != null) result.setTitle(TmdbTextFallback.title(movie.title, requestedLanguage, movie.translations, false));
+         if (movie.vote_average != null)
+             result.setRating(Math.round(movie.vote_average.floatValue() * 10)/10.0f);
+ 
+diff --git a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+index d3114cc..649e7e7 100644
+--- a/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
++++ b/src/com/archos/mediascraper/themoviedb3/ShowIdParser.java
+@@ -45,15 +45,18 @@ public class ShowIdParser {
+         mContext = context;
+         ShowTags result = new ShowTags();
+ 
+-        if (serie.overview != null) {
+-            if (log.isDebugEnabled()) log.debug("getResult: {} overview/plot {}", serie.name, serie.overview);
+-            result.setPlot(serie.overview);
++        // no polish (or other) translation: TMDb answers with the original japanese/korean text
++        String overview = TmdbTextFallback.overview(serie.overview, requestedLanguage, serie.translations);
++        if (overview != null) {
++            if (log.isDebugEnabled()) log.debug("getResult: {} overview/plot {}", serie.name, overview);
++            result.setPlot(overview);
+         } else {
+             log.warn("getResult: {} has no overview/plot", serie.name);
+         }
+ 
+         result.setRating(Math.round(serie.vote_average.floatValue() * 10)/10.0f);
+-        result.setTitle(serie.name + (( year != null) ? " " + year : ""));
++        String name = TmdbTextFallback.title(serie.name, requestedLanguage, serie.translations, true);
++        result.setTitle(name + (( year != null) ? " " + year : ""));
+         if (log.isDebugEnabled()) {
+             log.debug("getResult: TMDb show id={} name={} original_language={} original_name={} spoken_languages={}",
+                     serie.id, serie.name, serie.original_language, serie.original_name,
+@@ -61,7 +64,7 @@ public class ShowIdParser {
+         }
+         result.setOriginalLanguage(serie.original_language);
+         result.setOriginalTitle(serie.original_name);
+-        result.setTitleLanguage(TmdbTitleLanguage.forShow(serie.name, requestedLanguage,
++        result.setTitleLanguage(TmdbTitleLanguage.forShow(name, requestedLanguage,
+                 serie.original_name, serie.original_language, serie.translations));
+         if (serie.spoken_languages != null) {
+             List<String> spokenLanguages = new ArrayList<String>();
+diff --git a/src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java b/src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java
+new file mode 100644
+index 0000000..324c7ab
+--- /dev/null
++++ b/src/com/archos/mediascraper/themoviedb3/TmdbTextFallback.java
+@@ -0,0 +1,80 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import com.archos.mediacenter.utils.ISO639codes;
++import com.uwetrottmann.tmdb2.entities.Translations;
++import com.uwetrottmann.tmdb2.entities.Translations.Translation;
++
++/**
++ * When TMDb has no translation in the user's language it returns the original title and an empty
++ * overview: anime then show up as 葬送のフリーレン with no plot. Fall back to the english
++ * translation (already part of the response) whenever the text would otherwise be missing or in a
++ * script the user did not ask for.
++ */
++final class TmdbTextFallback {
++
++    private TmdbTextFallback() {}
++
++    static String title(String value, String requestedLanguage, Translations translations, boolean show) {
++        if (!isEmpty(value) && !needsFallback(value, requestedLanguage)) return value;
++        String english = translated(translations, "en", show, false);
++        return !isEmpty(english) ? english : value;
++    }
++
++    static String overview(String value, String requestedLanguage, Translations translations) {
++        if (!isEmpty(value) && !needsFallback(value, requestedLanguage)) return value;
++        String requested = translated(translations, normalize(requestedLanguage), false, true);
++        if (!isEmpty(requested) && !needsFallback(requested, requestedLanguage)) return requested;
++        String english = translated(translations, "en", false, true);
++        return !isEmpty(english) ? english : value;
++    }
++
++    /** text mostly written in a non latin script while the user asked for a latin script language */
++    static boolean needsFallback(String text, String requestedLanguage) {
++        if (isEmpty(text)) return true;
++        String lang = normalize(requestedLanguage);
++        if (NON_LATIN_LANGUAGES.contains(lang)) return false;
++        int letters = 0, nonLatin = 0;
++        for (int i = 0; i < text.length(); ) {
++            int cp = text.codePointAt(i);
++            i += Character.charCount(cp);
++            if (!Character.isLetter(cp)) continue;
++            letters++;
++            if (Character.UnicodeScript.of(cp) != Character.UnicodeScript.LATIN) nonLatin++;
++        }
++        return letters > 0 && nonLatin * 2 > letters;
++    }
++
++    private static final java.util.Set<String> NON_LATIN_LANGUAGES = java.util.Set.of(
++            "ja", "zh", "ko", "ru", "uk", "be", "bg", "sr", "mk", "el", "he", "ar", "fa", "hi", "th", "ka", "hy");
++
++    private static String translated(Translations translations, String language, boolean show, boolean overview) {
++        if (translations == null || translations.translations == null) return null;
++        for (Translation t : translations.translations) {
++            if (t == null || t.data == null || !language.equals(normalize(t.iso_639_1))) continue;
++            String v = overview ? t.data.overview : (show ? t.data.name : t.data.title);
++            if (!isEmpty(v)) return v;
++        }
++        return null;
++    }
++
++    private static String normalize(String language) {
++        String code = language == null ? "" : ISO639codes.getISO6391ForLetterCode(language);
++        return code.isEmpty() ? "und" : code;
++    }
++
++    private static boolean isEmpty(String s) {
++        return s == null || s.trim().isEmpty();
++    }
++}
+diff --git a/test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java b/test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java
+new file mode 100644
+index 0000000..c29ad15
+--- /dev/null
++++ b/test/java/com/archos/mediascraper/themoviedb3/TmdbTextFallbackTest.java
+@@ -0,0 +1,77 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediascraper.themoviedb3;
++
++import static org.junit.Assert.assertEquals;
++
++import com.uwetrottmann.tmdb2.entities.Translations;
++import com.uwetrottmann.tmdb2.entities.Translations.Translation;
++import com.uwetrottmann.tmdb2.entities.Translations.Translation.Data;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++import java.util.ArrayList;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(manifest = Config.NONE)
++public class TmdbTextFallbackTest {
++
++    private static Translations translations(String[]... entries) {
++        Translations t = new Translations();
++        t.translations = new ArrayList<>();
++        for (String[] e : entries) {
++            Translation tr = new Translation();
++            tr.iso_639_1 = e[0];
++            tr.data = new Data();
++            tr.data.name = e[1];
++            tr.data.title = e[1];
++            tr.data.overview = e[2];
++            t.translations.add(tr);
++        }
++        return t;
++    }
++
++    private static final Translations FRIEREN = translations(
++            new String[] { "ja", "葬送のフリーレン", "魔王を倒した勇者一行の後日譚" },
++            new String[] { "en", "Frieren: Beyond Journey's End", "After the party of heroes defeated the Demon King..." });
++
++    @Test
++    public void untranslatedAnimeFallsBackToEnglish() {
++        assertEquals("Frieren: Beyond Journey's End", TmdbTextFallback.title("葬送のフリーレン", "pl", FRIEREN, true));
++        assertEquals("After the party of heroes defeated the Demon King...", TmdbTextFallback.overview("", "pl", FRIEREN));
++        assertEquals("After the party of heroes defeated the Demon King...", TmdbTextFallback.overview(null, "pl", FRIEREN));
++    }
++
++    @Test
++    public void polishTranslationIsKept() {
++        Translations t = translations(
++                new String[] { "pl", "Frieren: Pochowana w podróży", "Polski opis" },
++                new String[] { "en", "Frieren: Beyond Journey's End", "English plot" });
++        assertEquals("Frieren: Pochowana w podróży", TmdbTextFallback.title("Frieren: Pochowana w podróży", "pl", t, true));
++        assertEquals("Polski opis", TmdbTextFallback.overview("Polski opis", "pl", t));
++    }
++
++    @Test
++    public void japaneseUserKeepsJapanese() {
++        assertEquals("葬送のフリーレン", TmdbTextFallback.title("葬送のフリーレン", "ja", FRIEREN, true));
++    }
++
++    @Test
++    public void noEnglishTranslationKeepsWhatWeHave() {
++        Translations onlyJa = translations(new String[] { "ja", "葬送のフリーレン", "あらすじ" });
++        assertEquals("葬送のフリーレン", TmdbTextFallback.title("葬送のフリーレン", "pl", onlyJa, true));
++    }
++}

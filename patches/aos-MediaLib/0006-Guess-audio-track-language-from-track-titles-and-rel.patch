@@ -1,0 +1,157 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: oop23 <ilidans01yt@gmail.com>
+Date: Sat, 10 Oct 2026 04:10:28 +0000
+Subject: [PATCH] Guess audio track language from track titles and release
+ names
+
+Polish voice-over (lektor) and dubbed tracks very often keep the 'eng'
+or 'und' tag of their source. TrackLanguageHints reads the track title
+(Lektor PL, Dubbing, Polski, Deutsch, VFF...) and the release name
+(PL.LEKTOR, PLDUB, [Lektor PL]) to give the real language.
+---
+ .../mediacenter/utils/TrackLanguageHints.java | 78 +++++++++++++++++++
+ .../utils/TrackLanguageHintsTest.java         | 50 ++++++++++++
+ 2 files changed, 128 insertions(+)
+ create mode 100644 src/com/archos/mediacenter/utils/TrackLanguageHints.java
+ create mode 100644 test/java/com/archos/mediacenter/utils/TrackLanguageHintsTest.java
+
+diff --git a/src/com/archos/mediacenter/utils/TrackLanguageHints.java b/src/com/archos/mediacenter/utils/TrackLanguageHints.java
+new file mode 100644
+index 0000000..daf58bc
+--- /dev/null
++++ b/src/com/archos/mediacenter/utils/TrackLanguageHints.java
+@@ -0,0 +1,78 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediacenter.utils;
++
++import java.util.regex.Pattern;
++
++/**
++ * Container language tags of audio tracks are often wrong: a polish voice-over ("lektor") or dub
++ * muxed into an mkv very frequently keeps the "eng" (or "und") tag of the source. The track title
++ * and the release name usually tell the truth, so they win over the tag.
++ *
++ * Pure Java (no Android types) so it is unit testable on the JVM.
++ */
++public final class TrackLanguageHints {
++
++    private TrackLanguageHints() {}
++
++    private static final String B = "(?:^|[^\\p{L}])";  // start of word
++    private static final String E = "(?:$|[^\\p{L}])";  // end of word
++
++    private static final Object[][] TITLE_HINTS = {
++            // polish: lektor (voice-over) and dubbing are polish-specific words in practice
++            { "pol", Pattern.compile("(?i)" + B + "(?:lektor|polski|polska|polish|pl\\s*dub|dubbing\\s*pl|pl)" + E) },
++            { "rus", Pattern.compile("(?i)" + B + "(?:russian|rus|русский|многоголосый|дубляж)" + E) },
++            { "ukr", Pattern.compile("(?i)" + B + "(?:ukrainian|ukr|українська)" + E) },
++            { "ger", Pattern.compile("(?i)" + B + "(?:german|deutsch|ger)" + E) },
++            { "fre", Pattern.compile("(?i)" + B + "(?:french|français|francais|vff|vfq|vf|vf2)" + E) },
++            { "spa", Pattern.compile("(?i)" + B + "(?:spanish|español|espanol|castellano|latino)" + E) },
++            { "ita", Pattern.compile("(?i)" + B + "(?:italian|italiano|ita)" + E) },
++            { "por", Pattern.compile("(?i)" + B + "(?:portuguese|português|portugues|dublado)" + E) },
++            { "cze", Pattern.compile("(?i)" + B + "(?:czech|česky|cesky|čeština|cz)" + E) },
++            { "jpn", Pattern.compile("(?i)" + B + "(?:japanese|日本語|jpn|jap)" + E) },
++            { "kor", Pattern.compile("(?i)" + B + "(?:korean|한국어|kor)" + E) },
++            { "eng", Pattern.compile("(?i)" + B + "(?:english|eng)" + E) },
++    };
++
++    // release names: "Film.2020.PL.LEKTOR.1080p", "Film [Lektor PL]", "Film.PLDUB", "Film.DUBBING.PL"
++    private static final Pattern FILE_POLISH_AUDIO = Pattern.compile(
++            "(?i)" + B + "(?:lektor|pldub|dubbing|pl[\\s._-]*dub|dub[\\s._-]*pl|lektor[\\s._-]*pl|pl[\\s._-]*lektor)" + E);
++
++    /**
++     * @return the ISO 639-2 language a track title clearly names, or null
++     */
++    public static String fromTitle(String trackTitle) {
++        if (trackTitle == null || trackTitle.isEmpty()) return null;
++        for (Object[] hint : TITLE_HINTS) {
++            if (((Pattern) hint[1]).matcher(trackTitle).find()) return (String) hint[0];
++        }
++        return null;
++    }
++
++    /**
++     * Language of an audio track: what its title says when it says something, the container tag
++     * otherwise.
++     */
++    public static String effectiveLanguage(String trackTitle, String containerLanguage) {
++        String fromTitle = fromTitle(trackTitle);
++        return fromTitle != null ? fromTitle : containerLanguage;
++    }
++
++    /**
++     * @return "pol" when the release name says the audio is a polish voice-over or dub, else null
++     */
++    public static String fromFileName(String fileName) {
++        if (fileName == null || fileName.isEmpty()) return null;
++        return FILE_POLISH_AUDIO.matcher(fileName).find() ? "pol" : null;
++    }
++}
+diff --git a/test/java/com/archos/mediacenter/utils/TrackLanguageHintsTest.java b/test/java/com/archos/mediacenter/utils/TrackLanguageHintsTest.java
+new file mode 100644
+index 0000000..a1ac7bb
+--- /dev/null
++++ b/test/java/com/archos/mediacenter/utils/TrackLanguageHintsTest.java
+@@ -0,0 +1,50 @@
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package com.archos.mediacenter.utils;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertNull;
++
++import org.junit.Test;
++
++public class TrackLanguageHintsTest {
++
++    @Test
++    public void trackTitleBeatsWrongContainerTag() {
++        assertEquals("pol", TrackLanguageHints.effectiveLanguage("Lektor PL", "eng"));
++        assertEquals("pol", TrackLanguageHints.effectiveLanguage("Polski - Lektor", "eng"));
++        assertEquals("pol", TrackLanguageHints.effectiveLanguage("Dubbing PL AC3", "und"));
++        assertEquals("ger", TrackLanguageHints.effectiveLanguage("Deutsch DTS", "eng"));
++        assertEquals("fre", TrackLanguageHints.effectiveLanguage("VFF", "eng"));
++        assertEquals("eng", TrackLanguageHints.effectiveLanguage("English", "pol"));
++    }
++
++    @Test
++    public void neutralTitlesKeepTheTag() {
++        assertEquals("eng", TrackLanguageHints.effectiveLanguage("AC3 5.1", "eng"));
++        assertEquals("eng", TrackLanguageHints.effectiveLanguage("Commentary", "eng"));
++        assertEquals("eng", TrackLanguageHints.effectiveLanguage("Plain", "eng"));
++        assertEquals("eng", TrackLanguageHints.effectiveLanguage(null, "eng"));
++    }
++
++    @Test
++    public void polishReleaseNames() {
++        assertEquals("pol", TrackLanguageHints.fromFileName("Film.2020.PL.LEKTOR.1080p.WEB-DL.mkv"));
++        assertEquals("pol", TrackLanguageHints.fromFileName("Film [Lektor PL].mkv"));
++        assertEquals("pol", TrackLanguageHints.fromFileName("Film.2020.PLDUB.mkv"));
++        assertEquals("pol", TrackLanguageHints.fromFileName("Film.2020.DUBBING.PL.mkv"));
++        assertNull(TrackLanguageHints.fromFileName("Film.2020.1080p.BluRay.x264.mkv"));
++        assertNull(TrackLanguageHints.fromFileName("Plektron.mkv"));
++        assertNull(TrackLanguageHints.fromFileName("Film.PL.SUBBED.mkv"));
++    }
++}
