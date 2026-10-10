@@ -1,3 +1,47 @@
+# ReNova Player changelog
+
+Versions read `<renova>-nova<base>`: ReNova's own version, then the NOVA release the patches are built on.
+
+## 0.1-nova6.5.5 (unreleased)
+
+First ReNova release, on NOVA 6.5.5.
+
+### Safety
+- Every source (SMB, FTP/FTPS, SFTP, WebDAV, UPnP, SAF, USB, internal storage) is read-only: delete, write, rename, move, mkdir and touch are refused below the UI, outside the app's private directories.
+- Delete, copy-to-device, NFO export and "remove from library" actions are gone; playback never touches files.
+- Scraped info, edits, resume points and downloaded subtitles stay on the device; `.nfo` files on shares are read (on by default), never written.
+- A rescan that would wipe most of a source (sleeping NAS, empty answer) waits for a second scan to confirm it.
+- Leaving a resumed video while it loads no longer resets its progress.
+- The same NAS found by IP and by name is one server; a share cannot be indexed twice under its name and its IP, and libraries already holding it twice are pointed out.
+- Fewer permissions: no Bluetooth, Wi-Fi switching or sticky broadcasts; the microphone is only asked for on TV.
+
+### Library and scraping
+- Edit info of movies, episodes and shows (also from the player menu); edits survive rescrapes.
+- Anime and streaming dumps: titles from folders, fansub and Polish names (`odc.`, `Odcinek`, `Sezon`), `GTO 01`, absolute numbers mapped to TMDb seasons.
+- AniList resolves romaji titles and checks anime matches; anime folders never get live action movies.
+- English fallback instead of untranslated Japanese titles and empty plots.
+- Artwork picked the Kodi way (textless backdrops, posters in your language), larger images.
+- Data sources credited on details: TMDb, IMDb, AniList and MyAnimeList links, NFO and "your edits" badges.
+- Polish voice-over (lektor) and dubs tagged `eng`/`und` detected from track titles and release names.
+- Scraping keeps running in background and retries when the network comes back.
+
+### Player
+- Stop button in the control bar, Kodi-like swipe to seek, double tap seeks that add up and no longer hang network files.
+- Buffering progress, clock style times, aspect ratio icon for the screen format button.
+- Readable title and texts (top fade, shadows), outlined subtitles by default, fewer icons over the video.
+- Optional cinema mode (ambient glow around the picture).
+- Brightness never written to the system nor remembered; the brightness swipe is opt-in.
+
+### Look
+- ReNova name, dark logo and palette, animated splash, blur-in entrance.
+- Material 3 dialogs with rounded cards and a blurred backdrop on Android 12+.
+- Gold main actions, readable artwork-tinted cards, artwork that blurs as info scrolls over it, Material 3 drawer, polished grids and resume card.
+- Installs next to the original NOVA (`io.github.oop23.renova`).
+
+---
+
+The history below is upstream NOVA's, kept as is.
+
 # Nova Video Player changelog
 
 <a id="v6.4.51"></a>

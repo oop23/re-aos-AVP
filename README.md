@@ -99,6 +99,10 @@ None of this belongs in a player. ReNova removes the buttons **and** makes the u
 
 ReNova versions read `<renova>-nova<base>`: **`0.1-nova6.5.5`** is ReNova 0.1 built on NOVA 6.5.5. The first number moves with ReNova's own changes, the second with the upstream release the patches are rebased on.
 
+## Changes
+
+See the [changelog](CHANGELOG.md).
+
 ## Help
 
 See the [Help / FAQ](faq/renova.md) (English and Polish), also reachable from *Settings → About*.
